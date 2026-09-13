@@ -478,20 +478,28 @@ async function main() {
     assert(structure.viewport.includes('width=device-width'), 'viewport 应包含 width=device-width');
   });
 
-  await test('复制按钮点击有反馈', async () => {
+  await test('复制按钮点击有反馈，且复制源内容完整', async () => {
     const feedback = await desktop.evaluate(async () => {
       const btn = document.querySelector('[data-copy-target="cmd-extensions"]');
       const original = btn.textContent;
       btn.click();
       await new Promise((r) => setTimeout(r, 120));
       const after = btn.textContent;
-      return { original, after };
+      // 复制取的是目标元素的 textContent。命令里为了折行插了 <wbr>，
+      // 必须确认这些折行提示没有被带进复制结果里
+      const clone = document.getElementById('cmd-clone')?.textContent.trim() || '';
+      return { original, after, clone };
     });
     assert(
       feedback.after === '已复制 ✓' || feedback.after === '请手动复制',
       `点击后应给出反馈，实际：${feedback.after}`
     );
-    info(`复制按钮反馈：${feedback.after}`);
+    assertEqual(
+      feedback.clone,
+      'git clone https://github.com/shenjiakai1992/ai-translator-extension.git',
+      '折行提示 <wbr> 不能污染复制出来的命令'
+    );
+    info(`复制按钮反馈：${feedback.after}，复制源长度 ${feedback.clone.length}`);
   });
 
   group('5. 截图存档');

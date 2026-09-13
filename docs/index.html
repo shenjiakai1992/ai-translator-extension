@@ -332,15 +332,19 @@
             <span class="step__num" aria-hidden="true">1</span>
             <h3 class="step__title">获取源码</h3>
             <p class="step__desc">
-              把项目下载到本地任意目录（路径尽量别带特殊符号）。
+              用下面这条命令，把项目拉到本地任意目录（路径尽量别带特殊符号）。
             </p>
             <div class="code-block">
               <div class="code-block__head">
                 <span>终端</span>
                 <button class="code-block__copy" type="button" data-copy-target="cmd-clone">复制</button>
               </div>
-              <pre class="code-block__body"><code id="cmd-clone">git clone https://github.com/shenjiakai1992/ai-translator-extension.git</code></pre>
+              <pre class="code-block__body"><code id="cmd-clone">git clone https://github.com/<wbr>shenjiakai1992/<wbr>ai-translator-extension.git</code></pre>
             </div>
+            <p class="step__desc">
+              电脑上没装 Git 也没关系：打开仓库页，点<b>绿色的「Code」按钮 → Download ZIP</b>，
+              解压出来效果完全一样。
+            </p>
           </li>
 
           <li class="step reveal">
@@ -471,11 +475,11 @@
                 这是最常见的一个坑。以 DeepSeek 为例：
               </p>
               <p class="note__desc">
-                错误 <code>https://platform.deepseek.com/api_keys</code>（那是网页后台）<br>
-                正确 <code>https://api.deepseek.com/v1</code>（这才是接口地址）
+                错 <code>platform.deepseek.com/<wbr>api_keys</code>（网页后台）<br>
+                对 <code>api.deepseek.com/<wbr>v1</code>（接口）
               </p>
               <p class="note__desc">
-                插件会识别并自动纠正这类误填，但自己填对更省事。
+                完整地址都要带 https:// 前缀。插件会自动纠正误填，自己填对更省事。
               </p>
             </div>
           </article>
