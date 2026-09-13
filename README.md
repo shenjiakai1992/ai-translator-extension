@@ -143,13 +143,14 @@ ai-translator-extension/
 │   │   └── content.js           # 注入页面：整页翻译 / 划词 / 总结（UI 走 Shadow DOM 隔离）
 │   ├── options/                 # 管理面板（独立标签页：配置 / 历史 / 用量）
 │   └── popup/                   # 弹窗：快捷操作 + 常用配置
-├── website/                     # 官方宣传站（纯静态，零依赖零构建，含部署说明）
+├── docs/                        # 官方宣传站（纯静态零构建，GitHub Pages 从本目录发布）
 └── tests/                       # 自动化测试（详见下一节）
 ```
 
 ### 推送到 GitHub
 
-远程仓库：`https://github.com/shenjiakai1992/ai-translator-extension`（私有，2026/09/13 创建）
+远程仓库：`https://github.com/shenjiakai1992/ai-translator-extension`（公开，2026/09/13 创建）
+宣传站（GitHub Pages）：https://shenjiakai1992.github.io/ai-translator-extension/
 
 本地已配好 `origin`，直接推送即可：
 
@@ -271,5 +272,5 @@ npx @puppeteer/browsers install chrome@stable --path ~/.workbuddy/binaries/brows
 2026/09/13 17:20：更新：v1.1.0 新增管理面板（模型配置 / 源目标语言切换 / 翻译历史 / token 用量统计与费用估算）；
 新增 `src/lib/history.js` 与 `src/options/`，源语言贯通翻译链路，费用显示按量级调整精度；
 测试总数 48 → 64（单元新增 9 项历史统计用例，端到端新增 7 项面板用例）
-2026/09/13 17:35：更新：新增官方宣传站 `website/`（纯静态零构建，含产品介绍、三大功能演示、
+2026/09/13 17:35：更新：新增官方宣传站（纯静态零构建，含产品介绍、三大功能演示、
 安装说明与注意要点，适配手机与电脑端）；新增 20 项站点验证测试，测试总数 64 → 84

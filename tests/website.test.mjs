@@ -21,7 +21,7 @@ import { pathToFileURL, fileURLToPath } from 'node:url';
 import { group, test, info, assert, assertEqual, summary } from './harness.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const SITE_DIR = path.resolve(__dirname, '..', 'website');
+const SITE_DIR = path.resolve(__dirname, '..', 'docs');
 const OUT_DIR = path.join(__dirname, 'output');
 
 const MIME_TYPES = {
@@ -159,7 +159,7 @@ async function main() {
     for (const rel of required) {
       assert(fs.existsSync(path.join(SITE_DIR, rel)), `缺少文件：${rel}`);
     }
-    info(`站点目录：website/（${required.length} 个必需文件齐全）`);
+    info(`站点目录：docs/（${required.length} 个必需文件齐全）`);
   });
 
   await test('启动本地静态服务并打开页面', async () => {
