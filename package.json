@@ -9,6 +9,8 @@
     "test:unit": "node tests/run-tests.mjs unit",
     "test:mock": "node tests/run-tests.mjs mock",
     "test:live": "node tests/run-tests.mjs live",
-    "test:e2e": "node tests/e2e.test.mjs"
+    "test:e2e": "node tests/e2e.test.mjs",
+    "test:site": "node tests/website.test.mjs",
+    "site:preview": "cd website && python3 -m http.server 8080"
   }
 }

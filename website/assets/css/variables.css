@@ -1,0 +1,115 @@
+/**
+ * 设计令牌（Design Tokens）
+ * 所有颜色、字号、间距、圆角、层级统一在这里定义，其他样式文件只引用变量，不硬编码。
+ */
+
+:root {
+  /* ---------- 品牌色 ---------- */
+  --color-brand: #4f7cff;
+  --color-brand-strong: #3a63e0;
+  --color-brand-alt: #7c5cff;
+  --color-brand-soft: rgba(79, 124, 255, 0.1);
+  --color-brand-softer: rgba(79, 124, 255, 0.05);
+
+  /* ---------- 语义色 ---------- */
+  --color-success: #2fa36b;
+  --color-success-soft: rgba(47, 163, 107, 0.1);
+  --color-warning: #c9821a;
+  --color-warning-soft: rgba(201, 130, 26, 0.1);
+  --color-danger: #e5484d;
+  --color-danger-soft: rgba(229, 72, 77, 0.1);
+
+  /* ---------- 中性色 ---------- */
+  --color-bg: #ffffff;
+  --color-bg-alt: #f6f7fa;
+  --color-surface: #ffffff;
+  --color-surface-alt: #f3f4f8;
+  --color-text: #14161c;
+  --color-text-soft: #4b5058;
+  --color-text-muted: #8b909a;
+  --color-border: rgba(15, 23, 42, 0.1);
+  --color-border-strong: rgba(15, 23, 42, 0.18);
+
+  /* ---------- 渐变 ---------- */
+  --gradient-brand: linear-gradient(135deg, #4f7cff 0%, #6a63ff 55%, #7c5cff 100%);
+  --gradient-text: linear-gradient(120deg, #4f7cff 0%, #7c5cff 100%);
+  --gradient-hero: radial-gradient(120% 90% at 12% 0%, rgba(79, 124, 255, 0.16) 0%, rgba(79, 124, 255, 0) 58%),
+    radial-gradient(90% 80% at 92% 6%, rgba(124, 92, 255, 0.14) 0%, rgba(124, 92, 255, 0) 60%);
+
+  /* ---------- 字体 ---------- */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.8125rem;
+  --font-size-base: 0.9375rem;
+  --font-size-md: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.375rem;
+  --font-size-2xl: 1.75rem;
+  --font-size-3xl: 2.25rem;
+  --font-size-4xl: 3rem;
+
+  --line-height-tight: 1.25;
+  --line-height-base: 1.7;
+  --line-height-relaxed: 1.85;
+
+  /* ---------- 间距 ---------- */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+  --space-9: 6rem;
+
+  /* ---------- 圆角与阴影 ---------- */
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+  --radius-pill: 999rem;
+
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --shadow-md: 0 4px 16px rgba(15, 23, 42, 0.07);
+  --shadow-lg: 0 18px 48px rgba(15, 23, 42, 0.12);
+  --shadow-brand: 0 10px 30px rgba(79, 124, 255, 0.28);
+
+  /* ---------- 层级（统一管理，禁止在别处写魔数）---------- */
+  --z-base: 1;
+  --z-mockup: 10;
+  --z-header: 100;
+  --z-nav: 200;
+
+  /* ---------- 布局 ---------- */
+  --container-max: 72rem;
+  --header-height: 4rem;
+  --transition: 0.22s cubic-bezier(0.32, 0.72, 0.35, 1);
+}
+
+/* ---------- 深色模式 ---------- */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #0f1116;
+    --color-bg-alt: #14161c;
+    --color-surface: #191c22;
+    --color-surface-alt: #212429;
+    --color-text: #eceef2;
+    --color-text-soft: #b7bcc5;
+    --color-text-muted: #878d98;
+    --color-border: rgba(255, 255, 255, 0.11);
+    --color-border-strong: rgba(255, 255, 255, 0.2);
+
+    --color-brand-soft: rgba(79, 124, 255, 0.18);
+    --color-brand-softer: rgba(79, 124, 255, 0.09);
+
+    --gradient-hero: radial-gradient(120% 90% at 12% 0%, rgba(79, 124, 255, 0.22) 0%, rgba(79, 124, 255, 0) 58%),
+      radial-gradient(90% 80% at 92% 6%, rgba(124, 92, 255, 0.18) 0%, rgba(124, 92, 255, 0) 60%);
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 18px 48px rgba(0, 0, 0, 0.5);
+  }
+}

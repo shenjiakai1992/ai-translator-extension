@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI 翻译助手 · 让外文网页像中文一样好读</title>
+  <meta name="description" content="基于任意 OpenAI 兼容大模型的 Chrome 翻译扩展：全页翻译、划词翻译、网页总结三合一。API Key 由你自己掌握，数据只存在本机。">
+  <meta name="theme-color" content="#4f7cff">
+  <meta property="og:title" content="AI 翻译助手 · Chrome 翻译扩展">
+  <meta property="og:description" content="全页翻译 / 划词翻译 / 网页总结，兼容任意 OpenAI 协议模型，密钥自持，数据本地存储。">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="assets/img/icon-128.png">
+  <link rel="icon" href="assets/img/favicon.png" type="image/png">
+  <link rel="apple-touch-icon" href="assets/img/icon-128.png">
+  <link rel="stylesheet" href="assets/css/variables.css">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/components.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+
+  <header class="site-header" id="site-header">
+    <div class="container site-header__inner">
+      <a class="brand" href="#top">
+        <span class="brand__logo" aria-hidden="true">译</span>
+        <span class="brand__text">
+          <strong>AI 翻译助手</strong>
+          <span>Chrome 扩展</span>
+        </span>
+      </a>
+
+      <button class="nav-toggle" id="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav">
+        <span class="nav-toggle__bar" aria-hidden="true"></span>
+        <span class="nav-toggle__bar" aria-hidden="true"></span>
+        <span class="nav-toggle__bar" aria-hidden="true"></span>
+        <span class="visually-hidden">打开导航菜单</span>
+      </button>
+
+      <nav class="site-nav" id="site-nav" aria-label="主导航">
+        <ul class="site-nav__list">
+          <li><a class="site-nav__link" href="#features">核心功能</a></li>
+          <li><a class="site-nav__link" href="#panel">管理面板</a></li>
+          <li><a class="site-nav__link" href="#install">安装说明</a></li>
+          <li><a class="site-nav__link" href="#notes">注意要点</a></li>
+          <li><a class="site-nav__link" href="#faq">常见问题</a></li>
+        </ul>
+        <a class="button button--primary button--sm" href="#install">开始安装</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- ==================== 首屏 ==================== -->
+    <section class="hero" id="top">
+      <div class="container">
+        <div class="hero__inner">
+          <p class="hero__badge">
+            <span class="hero__badge-dot" aria-hidden="true"></span>
+            当前版本 v1.1.0 · 已通过 64 项自动化测试
+          </p>
+
+          <h1 class="hero__title">
+            让外文网页<br>
+            <span class="text-gradient">像中文一样好读</span>
+          </h1>
+
+          <p class="hero__subtitle">
+            一个浏览器扩展，把翻译、划词、总结三件事做透。
+            接你想接的大模型，API Key 捏在你自己手里。
+          </p>
+
+          <div class="hero__actions">
+            <a class="button button--primary" href="#install">
+              <span class="button__icon" aria-hidden="true">↓</span>
+              查看安装说明
+            </a>
+            <a class="button button--ghost" href="#features">看看能做什么</a>
+          </div>
+
+          <div class="hero__tags">
+            <span class="hero__tag">无需注册</span>
+            <span class="hero__tag">密钥自持</span>
+            <span class="hero__tag">数据只存本机</span>
+            <span class="hero__tag">兼容任意 OpenAI 协议模型</span>
+          </div>
+        </div>
+
+        <dl class="hero__stats reveal">
+          <div class="hero__stat">
+            <dt class="hero__stat-label">核心功能</dt>
+            <dd class="hero__stat-value">3 大</dd>
+          </div>
+          <div class="hero__stat">
+            <dt class="hero__stat-label">支持语言</dt>
+            <dd class="hero__stat-value">10 种</dd>
+          </div>
+          <div class="hero__stat">
+            <dt class="hero__stat-label">自动化测试</dt>
+            <dd class="hero__stat-value">64 项</dd>
+          </div>
+          <div class="hero__stat">
+            <dt class="hero__stat-label">数据存储</dt>
+            <dd class="hero__stat-value">100% 本地</dd>
+          </div>
+        </dl>
+      </div>
+    </section>
+
+    <!-- ==================== 核心功能 ==================== -->
+    <section class="section" id="features">
+      <div class="container">
+        <header class="section__head">
+          <span class="section__eyebrow">核心功能</span>
+          <h2 class="section__title">翻译这件事，拆成三件顺手的小事</h2>
+          <p class="section__desc">
+            读外文资料最烦的三种场景：整页看不懂、某个词不认识、文章太长没时间看。
+            一个扩展全部解决。
+          </p>
+        </header>
+
+        <!-- 功能一：全页翻译 -->
+        <article class="feature reveal">
+          <div class="feature__text">
+            <span class="feature__index" aria-hidden="true">1</span>
+            <h3 class="feature__title">全页面翻译</h3>
+            <p class="feature__desc">
+              点一下，整页外文就地变成中文。不是套一层遮罩，而是真正替换原文，
+              排版、链接、图片位置都不动。
+            </p>
+            <ul class="feature__list">
+              <li class="feature__item">逐段翻译并显示进度，长页面心里有数</li>
+              <li class="feature__item">两种显示方式：仅译文，或「译文 + 原文对照」</li>
+              <li class="feature__item">随时一键还原，原文一字不差地回来</li>
+              <li class="feature__item">代码块、表单、占位符变量不会被误翻</li>
+              <li class="feature__item">快捷键 <span class="feature__kbd">Alt</span> + <span class="feature__kbd">Shift</span> + <span class="feature__kbd">T</span></li>
+            </ul>
+          </div>
+
+          <div class="browser" role="img" aria-label="全页面翻译效果示意：整页英文被替换为中文">
+            <div class="browser__bar">
+              <span class="browser__dot"></span>
+              <span class="browser__dot"></span>
+              <span class="browser__dot"></span>
+              <span class="browser__url">docs.example.com/manifest-v3</span>
+            </div>
+            <div class="browser__body">
+              <div class="demo-nav">
+                <span>首页</span><span>功能</span><span>定价</span><span>联系我们</span>
+              </div>
+              <div class="demo-line demo-line--title demo-line--zh"></div>
+              <div class="demo-line demo-line--w90 demo-line--zh"></div>
+              <div class="demo-line demo-line--w70 demo-line--zh"></div>
+              <div class="demo-line demo-line--w55 demo-line--zh"></div>
+              <div class="demo-toast">
+                <span class="demo-toast__dot" aria-hidden="true"></span>
+                翻译完成 · 266 段 · 耗时 1.8s
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <!-- 功能二：划词翻译 -->
+        <article class="feature feature--reverse reveal">
+          <div class="feature__text">
+            <span class="feature__index" aria-hidden="true">2</span>
+            <h3 class="feature__title">划词翻译</h3>
+            <p class="feature__desc">
+              遇到不认识的句子，选中就行。浮出一个小按钮，点一下弹出译文卡片，
+              可拖动、可复制，不打断阅读节奏。
+            </p>
+            <ul class="feature__list">
+              <li class="feature__item">选中即出按钮，不打扰原本的阅读</li>
+              <li class="feature__item">译文卡片可拖动、可复制、可随手关掉</li>
+              <li class="feature__item">也可以在选中后直接右键翻译</li>
+              <li class="feature__item">函数名、变量、网址、数字保持原样</li>
+            </ul>
+          </div>
+
+          <div class="browser" role="img" aria-label="划词翻译效果示意：选中句子后浮出翻译按钮与译文卡片">
+            <div class="browser__bar">
+              <span class="browser__dot"></span>
+              <span class="browser__dot"></span>
+              <span class="browser__dot"></span>
+              <span class="browser__url">blog.example.com/service-workers</span>
+            </div>
+            <div class="browser__body">
+              <p class="demo-select">
+                Service workers terminate after roughly thirty seconds of inactivity, which means
+                <span class="demo-select__mark">any state kept in global variables can vanish at any time</span>,
+                and developers must persist state in storage instead.
+              </p>
+              <span class="demo-translate-button" aria-hidden="true">译</span>
+
+              <div class="demo-card">
+                <div class="demo-card__head">
+                  <span class="demo-chip">简体中文</span>
+                  <span>选中 52 个字符</span>
+                </div>
+                <p class="demo-card__body">
+                  保存在全局变量里的状态随时可能丢失，开发者必须改用存储来持久化状态。
+                </p>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <!-- 功能三：网页总结 -->
+        <article class="feature reveal">
+          <div class="feature__text">
+            <span class="feature__index" aria-hidden="true">3</span>
+            <h3 class="feature__title">网页总结</h3>
+            <p class="feature__desc">
+              长文没时间看？让模型先替你读一遍。自动抓取正文，提炼成
+              「一句话结论 + 几条要点 + 适合谁看」，侧边栏滑出，不离开当前页面。
+            </p>
+            <ul class="feature__list">
+              <li class="feature__item">自动识别正文区域，忽略导航、广告、评论区</li>
+              <li class="feature__item">输出结构化要点，可直接复制走</li>
+              <li class="feature__item">总结语言跟随你的目标语言设置</li>
+              <li class="feature__item">只依据正文内容，不编造原文没有的信息</li>
+            </ul>
+          </div>
+
+          <div class="browser" role="img" aria-label="网页总结效果示意：右侧面板展示结论与要点列表">
+            <div class="browser__bar">
+              <span class="browser__dot"></span>
+              <span class="browser__dot"></span>
+              <span class="browser__dot"></span>
+              <span class="browser__url">research.example.com/long-article</span>
+            </div>
+            <div class="browser__body">
+              <div class="demo-summary">
+                <div>
+                  <div class="demo-line demo-line--title"></div>
+                  <div class="demo-line demo-line--w90"></div>
+                  <div class="demo-line demo-line--w70"></div>
+                  <div class="demo-line demo-line--w90"></div>
+                  <div class="demo-line demo-line--w55"></div>
+                </div>
+
+                <div class="demo-summary__panel">
+                  <div class="demo-summary__title">
+                    <span>网页总结</span>
+                    <span class="demo-chip">简体中文</span>
+                  </div>
+                  <p class="demo-summary__conclusion">
+                    用自动化部署替代传统运维流程，首季度部署时间减少 60%。
+                  </p>
+                  <div class="demo-summary__list">
+                    <span class="demo-summary__item">配置、扩缩容、监控由单一 API 完成</span>
+                    <span class="demo-summary__item">内置可观测性，无需额外装代理</span>
+                    <span class="demo-summary__item">一条命令即时回滚</span>
+                    <span class="demo-summary__item">按用量计费，无隐藏费用</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- ==================== 管理面板 ==================== -->
+    <section class="section section--alt" id="panel">
+      <div class="container">
+        <header class="section__head">
+          <span class="section__eyebrow">超出预期</span>
+          <h2 class="section__title">还送一个管理面板</h2>
+          <p class="section__desc">
+            翻译了多少、花了多少 token、上次翻的什么——都在一个独立页面里看得清清楚楚。
+          </p>
+        </header>
+
+        <div class="panel-grid">
+          <article class="panel-card reveal">
+            <span class="panel-card__icon" aria-hidden="true">◈</span>
+            <h3 class="panel-card__title">模型配置</h3>
+            <p class="panel-card__desc">
+              接口地址实时校验，误填成密钥管理页会直接提示；API Key 可显示可隐藏；一键测试连通性。
+            </p>
+          </article>
+
+          <article class="panel-card reveal">
+            <span class="panel-card__icon" aria-hidden="true">⇄</span>
+            <h3 class="panel-card__title">语言方向</h3>
+            <p class="panel-card__desc">
+              源语言可选「自动检测」，目标语言 10 种任选，中间一个按钮随时互换方向。
+            </p>
+          </article>
+
+          <article class="panel-card reveal">
+            <span class="panel-card__icon" aria-hidden="true">☰</span>
+            <h3 class="panel-card__title">翻译历史</h3>
+            <p class="panel-card__desc">
+              每次翻译都留痕：类型、语言方向、token、耗时一目了然。可展开看原文译文、可搜索、可单条删除。
+            </p>
+          </article>
+
+          <article class="panel-card reveal">
+            <span class="panel-card__icon" aria-hidden="true">◔</span>
+            <h3 class="panel-card__title">用量统计</h3>
+            <p class="panel-card__desc">
+              输入/输出 token 分开统计，近 14 天柱状图，按模型和操作类型分布。填上单价还能估算花费。
+            </p>
+            <div class="mini-chart" aria-hidden="true">
+              <span class="mini-chart__bar mini-chart__bar--1"></span>
+              <span class="mini-chart__bar mini-chart__bar--2"></span>
+              <span class="mini-chart__bar mini-chart__bar--3"></span>
+              <span class="mini-chart__bar mini-chart__bar--4"></span>
+              <span class="mini-chart__bar mini-chart__bar--5"></span>
+              <span class="mini-chart__bar mini-chart__bar--6"></span>
+              <span class="mini-chart__bar mini-chart__bar--7"></span>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== 安装说明 ==================== -->
+    <section class="section" id="install">
+      <div class="container">
+        <header class="section__head">
+          <span class="section__eyebrow">安装说明</span>
+          <h2 class="section__title">五分钟装好，从此告别复制粘贴</h2>
+          <p class="section__desc">
+            扩展未上架商店，用「加载已解压的扩展程序」方式安装，手动更新一次即可长期使用。
+          </p>
+        </header>
+
+        <ol class="steps">
+          <li class="step reveal">
+            <span class="step__num" aria-hidden="true">1</span>
+            <h3 class="step__title">获取源码</h3>
+            <p class="step__desc">
+              把项目下载到本地任意目录（路径尽量别带特殊符号）。
+            </p>
+            <div class="code-block">
+              <div class="code-block__head">
+                <span>终端</span>
+                <button class="code-block__copy" type="button" data-copy-target="cmd-clone">复制</button>
+              </div>
+              <pre class="code-block__body"><code id="cmd-clone">git clone https://github.com/shenjiakai1992/ai-translator-extension.git</code></pre>
+            </div>
+          </li>
+
+          <li class="step reveal">
+            <span class="step__num" aria-hidden="true">2</span>
+            <h3 class="step__title">打开扩展管理页</h3>
+            <p class="step__desc">
+              在 Chrome 地址栏输入下面这行并回车，然后打开页面右上角的「开发者模式」开关。
+            </p>
+            <div class="code-block">
+              <div class="code-block__head">
+                <span>地址栏</span>
+                <button class="code-block__copy" type="button" data-copy-target="cmd-extensions">复制</button>
+              </div>
+              <pre class="code-block__body"><code id="cmd-extensions">chrome://extensions/</code></pre>
+            </div>
+          </li>
+
+          <li class="step reveal">
+            <span class="step__num" aria-hidden="true">3</span>
+            <h3 class="step__title">加载扩展</h3>
+            <p class="step__desc">
+              点左上角「加载已解压的扩展程序」，选择项目里的
+              <code>ai-translator-extension</code> 文件夹——就是<b>含 manifest.json 的那一层</b>，
+              不要选成它的上级目录。
+            </p>
+            <p class="step__desc">装好后建议点浏览器工具栏的拼图图标，把「AI 翻译助手」固定出来。</p>
+          </li>
+
+          <li class="step reveal">
+            <span class="step__num" aria-hidden="true">4</span>
+            <h3 class="step__title">配置模型</h3>
+            <p class="step__desc">
+              点扩展图标 → 展开设置，填三项：接口地址、API Key、模型名称。
+              先点「测试连接」确认能通，再点「保存设置」。
+            </p>
+            <p class="step__desc">
+              这三项都来自你自己的模型服务账号，插件不代充、不转发。填错地址插件会自动纠正。
+            </p>
+          </li>
+
+          <li class="step reveal">
+            <span class="step__num" aria-hidden="true">5</span>
+            <h3 class="step__title">开始使用</h3>
+            <p class="step__desc">
+              打开任意外文网页：点「翻译本页」整页翻译，选中文字划线翻译，
+              点「总结本页」看要点。快捷键 <span class="feature__kbd">Alt</span> +
+              <span class="feature__kbd">Shift</span> + <span class="feature__kbd">T</span> 可直接翻译整页。
+            </p>
+          </li>
+        </ol>
+
+        <!-- 支持的模型服务 -->
+        <h3 class="feature__title" id="providers">支持哪些模型服务</h3>
+        <p class="feature__desc">
+          只要服务商提供 OpenAI 兼容接口就能用，以下为常见示例（Base URL 请以官网为准）。
+        </p>
+
+        <div class="table-wrap">
+          <table class="table">
+            <caption class="visually-hidden">常见模型服务商的接口地址与推荐模型</caption>
+            <thead>
+              <tr>
+                <th scope="col">服务商</th>
+                <th scope="col">Base URL</th>
+                <th scope="col">常用模型</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>DeepSeek</td>
+                <td><code>https://api.deepseek.com/v1</code></td>
+                <td><code>deepseek-flash</code></td>
+              </tr>
+              <tr>
+                <td>OpenAI</td>
+                <td><code>https://api.openai.com/v1</code></td>
+                <td><code>gpt-4o-mini</code></td>
+              </tr>
+              <tr>
+                <td>阿里通义</td>
+                <td><code>https://dashscope.aliyuncs.com/compatible-mode/v1</code></td>
+                <td><code>qwen-plus</code></td>
+              </tr>
+              <tr>
+                <td>智谱 AI</td>
+                <td><code>https://open.bigmodel.cn/api/paas/v4</code></td>
+                <td><code>glm-4-flash</code></td>
+              </tr>
+              <tr>
+                <td>月之暗面</td>
+                <td><code>https://api.moonshot.cn/v1</code></td>
+                <td><code>moonshot-v1-8k</code></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== 注意要点 ==================== -->
+    <section class="section section--alt" id="notes">
+      <div class="container">
+        <header class="section__head">
+          <span class="section__eyebrow">注意要点</span>
+          <h2 class="section__title">装之前先看这几条，能省不少事</h2>
+          <p class="section__desc">
+            下面都是实际使用中容易踩到的点，提前知道就不用到处找原因了。
+          </p>
+        </header>
+
+        <div class="notes">
+          <article class="note note--warning reveal">
+            <span class="note__icon" aria-hidden="true">⚑</span>
+            <div>
+              <h3 class="note__title">必须自备 API Key</h3>
+              <p class="note__desc">
+                插件不内置任何密钥，也不提供代充或转发服务。你需要在自己的模型服务商后台申请一个 Key，
+                费用直接结算给你选的服务商，插件不参与。
+              </p>
+            </div>
+          </article>
+
+          <article class="note note--danger reveal">
+            <span class="note__icon" aria-hidden="true">!</span>
+            <div>
+              <h3 class="note__title">Base URL 别填成密钥管理页</h3>
+              <p class="note__desc">
+                这是最常见的一个坑。以 DeepSeek 为例：
+              </p>
+              <p class="note__desc">
+                错误 <code>https://platform.deepseek.com/api_keys</code>（那是网页后台）<br>
+                正确 <code>https://api.deepseek.com/v1</code>（这才是接口地址）
+              </p>
+              <p class="note__desc">
+                插件会识别并自动纠正这类误填，但自己填对更省事。
+              </p>
+            </div>
+          </article>
+
+          <article class="note note--warning reveal">
+            <span class="note__icon" aria-hidden="true">✕</span>
+            <div>
+              <h3 class="note__title">这三类页面用不了</h3>
+              <p class="note__desc">
+                Chrome 不允许任何扩展在这些页面注入脚本，不是插件的问题：
+              </p>
+              <p class="note__desc">
+                浏览器内置页面（<code>chrome://</code> 开头）、Chrome 应用商店、PDF 阅读器。<br>
+                换成普通网页即可，弹窗里也会给出提示。
+              </p>
+            </div>
+          </article>
+
+          <article class="note reveal">
+            <span class="note__icon" aria-hidden="true">↻</span>
+            <div>
+              <h3 class="note__title">刚装好时，已打开的网页要刷一下</h3>
+              <p class="note__desc">
+                这是 Chrome 的行为：安装扩展之前就已经打开的页面不会自动注入脚本。
+              </p>
+              <p class="note__desc">
+                现在插件会自动补注入，一般无需处理；如果仍提示页面不可用，
+                点弹窗里的「重试」或按 <span class="feature__kbd">F5</span> 刷新即可。
+              </p>
+            </div>
+          </article>
+
+          <article class="note reveal">
+            <span class="note__icon" aria-hidden="true">✽</span>
+            <div>
+              <h3 class="note__title">密钥与记录都只存在本机</h3>
+              <p class="note__desc">
+                API Key、翻译历史、用量统计全部保存在你自己的浏览器里，不同步、不上传。
+                请求由插件后台直接发往你填的服务地址，不经过任何中间服务器。
+              </p>
+              <p class="note__desc">
+                管理面板里可以关闭「记录历史」，也可以只留元信息、不保存原文译文。
+              </p>
+            </div>
+          </article>
+
+          <article class="note reveal">
+            <span class="note__icon" aria-hidden="true">◑</span>
+            <div>
+              <h3 class="note__title">token 消耗与费用</h3>
+              <p class="note__desc">
+                整页翻译会产生真实调用费用，长页面尤其明显。建议保持「快速模式」开启
+                （关闭模型思考链，实测响应更快、token 更省）。
+              </p>
+              <p class="note__desc">
+                想心里有数，可以在管理面板的「用量统计」里看每天花了多少，填上单价还能估算费用。
+              </p>
+            </div>
+          </article>
+
+          <article class="note reveal">
+            <span class="note__icon" aria-hidden="true">◎</span>
+            <div>
+              <h3 class="note__title">浏览器版本要求</h3>
+              <p class="note__desc">
+                需要 Chrome 110 及以上（基于 Manifest V3）。Edge 等 Chromium 内核浏览器同样可用。
+              </p>
+            </div>
+          </article>
+
+          <article class="note reveal">
+            <span class="note__icon" aria-hidden="true">⌘</span>
+            <div>
+              <h3 class="note__title">给开发者的提示</h3>
+              <p class="note__desc">
+                Chrome 137 起，品牌版 Chrome 移除了 <code>--load-extension</code> 命令行参数，
+                因此扩展的自动化测试需要用 Chrome for Testing 或 Chromium 加载。
+              </p>
+              <p class="note__desc">日常使用不受影响，手动加载照样可用。</p>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== 常见问题 ==================== -->
+    <section class="section" id="faq">
+      <div class="container">
+        <header class="section__head">
+          <span class="section__eyebrow">常见问题</span>
+          <h2 class="section__title">你可能还想问</h2>
+        </header>
+
+        <div class="faq">
+          <details class="faq__item">
+            <summary class="faq__question">点插件图标提示「这个页面用不了扩展」怎么办？</summary>
+            <div class="faq__answer">
+              先确认不是浏览器内置页面（<code>chrome://</code> 开头）、Chrome 应用商店或 PDF 阅读器——
+              这三类页面 Chrome 不允许注入脚本。如果确认是普通网页，
+              点弹窗里的「重试」，或按 <b>F5</b> 刷新一次即可。
+            </div>
+          </details>
+
+          <details class="faq__item">
+            <summary class="faq__question">提示 API Key 无效或认证失败？</summary>
+            <div class="faq__answer">
+              九成是 Base URL 填错了。它不是网页后台地址，而是接口地址，多数服务商需要带
+              <code>/v1</code>，例如 <code>https://api.deepseek.com/v1</code>。
+              其次检查 Key 是否复制完整（首尾别带空格）、账号余额是否充足。
+              填好后先点「测试连接」，通过再保存。
+            </div>
+          </details>
+
+          <details class="faq__item">
+            <summary class="faq__question">翻译会改动我原来的网页吗？能还原吗？</summary>
+            <div class="faq__answer">
+              只在当前这次浏览里替换文本，不会修改服务器上的任何内容。
+              点提示条上的「还原」或弹窗里的「还原原文」，页面会逐字恢复到你翻译前的样子，
+              包括双语对照模式下插入的原文块也会一并清理。
+            </div>
+          </details>
+
+          <details class="faq__item">
+            <summary class="faq__question">长页面翻译很慢，怎么办？</summary>
+            <div class="faq__answer">
+              三点建议：一、保持「快速模式」开启，它会关闭模型的思考链；二、先把目标语言设对，
+              避免每次都要看图判断；三、如果只是想了解内容大意，用「总结本页」比整页翻译省得多。
+              翻译过程中右下角会显示进度，随时可以点「停止」。
+            </div>
+          </details>
+
+          <details class="faq__item">
+            <summary class="faq__question">我的 API Key 安全吗？</summary>
+            <div class="faq__answer">
+              Key 只保存在你本机的浏览器存储里，且只由插件后台使用，网页脚本拿不到它。
+              插件代码完全公开，可以自行审计。
+              唯一的建议：不要在公共电脑上使用，也别把 Key 分享给别人。
+            </div>
+          </details>
+
+          <details class="faq__item">
+            <summary class="faq__question">为什么翻译结果里有些词没变？</summary>
+            <div class="faq__answer">
+              这是有意为之。代码块、变量名、函数名、网址、邮箱、百分比占位符（如
+              <code>%s</code>、<code>{0}</code>）如果被翻译，反而会让代码或模板失效，
+              所以插件要求模型原样保留，并且自动跳过
+              <code>&lt;script&gt;</code>、<code>&lt;code&gt;</code>、<code>&lt;pre&gt;</code> 等标签里的内容。
+            </div>
+          </details>
+
+          <details class="faq__item">
+            <summary class="faq__question">换电脑或重装浏览器后需要重装吗？</summary>
+            <div class="faq__answer">
+              需要。因为扩展是本地加载的，配置不会自动同步。
+              重新加载一次扩展后，把 Base URL、API Key、模型名再填一遍即可。
+              历史记录和用量统计属于本地数据，也不会跟着走。
+            </div>
+          </details>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ==================== 页脚 ==================== -->
+  <footer class="site-footer">
+    <div class="container">
+      <div class="site-footer__inner">
+        <div class="site-footer__brand">
+          <a class="brand" href="#top">
+            <span class="brand__logo" aria-hidden="true">译</span>
+            <span class="brand__text">
+              <strong>AI 翻译助手</strong>
+              <span>Chrome 扩展 · v1.1.0</span>
+            </span>
+          </a>
+          <p>
+            一个把翻译、划词、总结做透的浏览器扩展。密钥自持，数据本地存储，源码可审计。
+          </p>
+        </div>
+
+        <nav class="site-footer__links" aria-label="页脚导航">
+          <a href="#features">核心功能</a>
+          <a href="#panel">管理面板</a>
+          <a href="#install">安装说明</a>
+          <a href="#notes">注意要点</a>
+          <a href="#faq">常见问题</a>
+        </nav>
+      </div>
+
+      <div class="site-footer__bottom">
+        <span>© 2026 AI 翻译助手 · 仅供学习与个人使用</span>
+        <span>本页面为静态站点，不收集任何访问数据</span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="assets/js/main.js" defer></script>
+</body>
+</html>
