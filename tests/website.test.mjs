@@ -10,7 +10,12 @@
  *  6. 前端规范符合性（无行内样式、类名短横线、语义化标签、装饰图有替代文本）
  *  7. 产出桌面端与手机端截图
  *
- * 运行：node tests/website.test.mjs
+ * 运行：
+ *   node tests/website.test.mjs                                           # 测本地 docs/ 目录
+ *   AITX_SITE_URL=https://xxx.github.io/repo/ node tests/website.test.mjs # 测已部署的线上地址
+ *
+ * 线上模式会额外走本机代理（AITX_PROXY，默认 http://127.0.0.1:7897），
+ * 用来验证部署后的静态资源是否都能正常加载。
  */
 
 import http from 'node:http';
@@ -23,6 +28,9 @@ import { group, test, info, assert, assertEqual, summary } from './harness.mjs';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SITE_DIR = path.resolve(__dirname, '..', 'docs');
 const OUT_DIR = path.join(__dirname, 'output');
+
+const LIVE_URL = (process.env.AITX_SITE_URL || '').trim();
+const PROXY = process.env.AITX_PROXY || 'http://127.0.0.1:7897';
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -119,6 +127,8 @@ let missingAssets = [];
 let baseUrl = '';
 let ready = false;
 const consoleErrors = [];
+/** 状态码 >= 400 的响应，用来抓资源 404（线上模式下尤其重要） */
+const failedResponses = [];
 
 async function openSite(viewport) {
   const page = await browser.newPage();
@@ -127,6 +137,9 @@ async function openSite(viewport) {
     if (msg.type() === 'error') consoleErrors.push(msg.text());
   });
   page.on('pageerror', (err) => consoleErrors.push(String(err)));
+  page.on('response', (res) => {
+    if (res.status() >= 400) failedResponses.push(`${res.status()} ${res.url()}`);
+  });
   await page.goto(baseUrl, { waitUntil: 'load', timeout: 20000 });
   await new Promise((r) => setTimeout(r, 400));
   return page;
@@ -147,7 +160,13 @@ async function main() {
 
   group('0. 环境准备');
 
-  await test('静态站点文件齐全', () => {
+  if (LIVE_URL) {
+    await test('线上模式：跳过本地文件检查', () => {
+      info(`目标地址：${LIVE_URL}（经代理 ${PROXY}）`);
+    });
+  }
+
+  if (!LIVE_URL) await test('静态站点文件齐全', () => {
     const required = [
       'index.html',
       'assets/css/variables.css',
@@ -162,17 +181,28 @@ async function main() {
     info(`站点目录：docs/（${required.length} 个必需文件齐全）`);
   });
 
-  await test('启动本地静态服务并打开页面', async () => {
-    const s = await serveSite();
-    server = s.server;
-    missingAssets = s.missing;
-    baseUrl = `http://127.0.0.1:${s.port}/`;
+  await test(LIVE_URL ? '打开线上站点' : '启动本地静态服务并打开页面', async () => {
+    if (LIVE_URL) {
+      baseUrl = LIVE_URL;
+    } else {
+      const s = await serveSite();
+      server = s.server;
+      missingAssets = s.missing;
+      baseUrl = `http://127.0.0.1:${s.port}/`;
+    }
     browser = await puppeteer.launch({
       executablePath: chromePath,
       headless: 'new',
       protocolTimeout: 120000,
       userDataDir: fs.mkdtempSync('/tmp/aitx-site-'),
-      args: ['--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', '--no-first-run', '--hide-scrollbars'],
+      args: [
+        '--no-sandbox',
+        '--disable-gpu',
+        '--disable-dev-shm-usage',
+        '--no-first-run',
+        '--hide-scrollbars',
+        ...(LIVE_URL ? [`--proxy-server=${PROXY}`] : []),
+      ],
     });
     ready = true;
     info(baseUrl);
@@ -192,7 +222,8 @@ async function main() {
   });
 
   await test('所有资源都加载成功（无 404）', () => {
-    assertEqual(missingAssets.length, 0, `有资源 404：${missingAssets.join(', ')}`);
+    const bad = [...missingAssets, ...failedResponses];
+    assertEqual(bad.length, 0, `有资源加载失败：${bad.join(' | ')}`);
   });
 
   await test('三个样式文件都生效', async () => {

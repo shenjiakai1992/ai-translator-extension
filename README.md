@@ -198,6 +198,7 @@ npm run test:mock     # 2. 本地 Mock 服务，验证拆批自愈 / 降级重�
 npm run test:live     # 3. 真实调用模型接口，验证翻译与总结质量（9 项）
 npm run test:e2e      # 4. 端到端：真启动浏览器加载扩展跑完整链路（28 项）
 npm run test:site     # 5. 宣传站：资源、响应式、锚点、内容与规范符合性（20 项）
+npm run test:site:live # 5b. 同上，但直接验证已部署的线上地址（需要本机代理）
 npm run site:preview  # 本地预览宣传站（http://127.0.0.1:8080）
 ```
 
@@ -274,3 +275,6 @@ npx @puppeteer/browsers install chrome@stable --path ~/.workbuddy/binaries/brows
 测试总数 48 → 64（单元新增 9 项历史统计用例，端到端新增 7 项面板用例）
 2026/09/13 17:35：更新：新增官方宣传站（纯静态零构建，含产品介绍、三大功能演示、
 安装说明与注意要点，适配手机与电脑端）；新增 20 项站点验证测试，测试总数 64 → 84
+2026/09/13 17:45：更新：仓库转为公开；宣传站目录改为 `docs/` 并发布到 GitHub Pages
+（https://shenjiakai1992.github.io/ai-translator-extension/）；站点测试新增线上验证模式
+（`npm run test:site:live`），本地与线上各 20 项均通过

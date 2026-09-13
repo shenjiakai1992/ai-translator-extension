@@ -11,6 +11,7 @@
     "test:live": "node tests/run-tests.mjs live",
     "test:e2e": "node tests/e2e.test.mjs",
     "test:site": "node tests/website.test.mjs",
+    "test:site:live": "AITX_SITE_URL=https://shenjiakai1992.github.io/ai-translator-extension/ node tests/website.test.mjs",
     "site:preview": "cd docs && python3 -m http.server 8080"
   }
 }
