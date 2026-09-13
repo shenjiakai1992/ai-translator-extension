@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>AI 翻译助手 · 管理面板</title>
+<link rel="stylesheet" href="options.css">
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <div class="brand">
+      <div class="logo">译</div>
+      <div class="brand-text">
+        <h1>AI 翻译助手</h1>
+        <p>管理面板</p>
+      </div>
+    </div>
+
+    <nav id="nav">
+      <button class="nav-item" data-tab="overview"><span class="nav-ico">▤</span>概览</button>
+      <button class="nav-item" data-tab="model"><span class="nav-ico">◈</span>模型配置</button>
+      <button class="nav-item" data-tab="language"><span class="nav-ico">⇄</span>语言与翻译</button>
+      <button class="nav-item" data-tab="history"><span class="nav-ico">☰</span>历史记录<span class="pill" id="historyPill">0</span></button>
+      <button class="nav-item" data-tab="usage"><span class="nav-ico">◔</span>用量统计</button>
+    </nav>
+
+    <div class="side-foot">
+      <div class="status-dot" id="sideDot"></div>
+      <p id="sideStatus">正在读取配置…</p>
+    </div>
+  </aside>
+
+  <main class="main">
+
+    <!-- ============ 概览 ============ -->
+    <section class="tab" id="tab-overview">
+      <header class="page-head">
+        <h2>概览</h2>
+        <p>插件当前状态、最近翻译与用量速览</p>
+      </header>
+
+      <div class="cards">
+        <div class="card stat">
+          <span class="stat-label">累计请求</span>
+          <strong class="stat-value" id="ovRequests">—</strong>
+          <span class="stat-sub" id="ovFirstAt">&nbsp;</span>
+        </div>
+        <div class="card stat">
+          <span class="stat-label">累计 token</span>
+          <strong class="stat-value" id="ovTokens">—</strong>
+          <span class="stat-sub" id="ovTokensSub">&nbsp;</span>
+        </div>
+        <div class="card stat">
+          <span class="stat-label">今日 token</span>
+          <strong class="stat-value" id="ovToday">—</strong>
+          <span class="stat-sub" id="ovTodaySub">&nbsp;</span>
+        </div>
+        <div class="card stat">
+          <span class="stat-label">累计翻译字数</span>
+          <strong class="stat-value" id="ovChars">—</strong>
+          <span class="stat-sub" id="ovCharsSub">&nbsp;</span>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-head">
+            <h3>模型接入</h3>
+            <button class="btn ghost sm" id="ovTest">测试连接</button>
+          </div>
+          <dl class="kv" id="ovModelInfo">
+            <dt>接口地址</dt><dd id="ovBaseUrl">—</dd>
+            <dt>模型</dt><dd id="ovModel">—</dd>
+            <dt>API Key</dt><dd id="ovKey">—</dd>
+            <dt>语言方向</dt><dd id="ovLangs">—</dd>
+          </dl>
+          <p class="test-out" id="ovTestOut" hidden></p>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <h3>最近翻译</h3>
+            <button class="btn ghost sm" data-goto="history">全部记录</button>
+          </div>
+          <ul class="mini-list" id="ovRecent"><li class="muted">还没有记录</li></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 模型配置 ============ -->
+    <section class="tab" id="tab-model">
+      <header class="page-head">
+        <h2>模型配置</h2>
+        <p>兼容所有 OpenAI 协议的服务，填你自己的接口地址与 Key</p>
+      </header>
+
+      <div class="card">
+        <label class="field">
+          <span class="fl">接口地址 Base URL</span>
+          <input id="baseUrl" type="text" spellcheck="false" placeholder="https://api.deepseek.com/v1">
+        </label>
+        <p class="hint" id="baseUrlHint"></p>
+
+        <label class="field">
+          <span class="fl">API Key</span>
+          <span class="inline">
+            <input id="apiKey" type="password" spellcheck="false" placeholder="sk-...">
+            <button class="btn ghost sm" id="btnToggleKey" type="button">显示</button>
+          </span>
+        </label>
+        <p class="hint">Key 只保存在本机浏览器，不会上传到任何第三方；所有请求由插件后台直接发往你填的服务地址。</p>
+
+        <label class="field">
+          <span class="fl">模型名称</span>
+          <input id="model" type="text" list="modelList" spellcheck="false" placeholder="deepseek-flash">
+          <datalist id="modelList">
+            <option value="deepseek-flash"></option>
+            <option value="deepseek-chat"></option>
+            <option value="deepseek-reasoner"></option>
+            <option value="gpt-4o-mini"></option>
+            <option value="gpt-4o"></option>
+            <option value="qwen-plus"></option>
+            <option value="glm-4-flash"></option>
+            <option value="moonshot-v1-8k"></option>
+          </datalist>
+        </label>
+
+        <div class="actions">
+          <button class="btn ghost" id="btnTest" type="button">测试连接</button>
+          <button class="btn solid" id="btnSaveModel" type="button">保存配置</button>
+        </div>
+        <p class="test-out" id="testOut" hidden></p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>常见服务地址对照</h3></div>
+        <table class="table">
+          <thead><tr><th>服务商</th><th>Base URL</th><th>常用模型</th></tr></thead>
+          <tbody>
+            <tr><td>DeepSeek</td><td><code>https://api.deepseek.com/v1</code></td><td><code>deepseek-flash</code></td></tr>
+            <tr><td>OpenAI</td><td><code>https://api.openai.com/v1</code></td><td><code>gpt-4o-mini</code></td></tr>
+            <tr><td>阿里通义</td><td><code>https://dashscope.aliyuncs.com/compatible-mode/v1</code></td><td><code>qwen-plus</code></td></tr>
+            <tr><td>智谱 AI</td><td><code>https://open.bigmodel.cn/api/paas/v4</code></td><td><code>glm-4-flash</code></td></tr>
+            <tr><td>月之暗面</td><td><code>https://api.moonshot.cn/v1</code></td><td><code>moonshot-v1-8k</code></td></tr>
+          </tbody>
+        </table>
+        <p class="hint">填 <code>https://api.deepseek.com</code> 这类地址会自动补全为 <code>/v1/chat/completions</code>；误填密钥管理页也会被自动纠正。</p>
+      </div>
+    </section>
+
+    <!-- ============ 语言与翻译 ============ -->
+    <section class="tab" id="tab-language">
+      <header class="page-head">
+        <h2>语言与翻译</h2>
+        <p>设置翻译方向与显示方式</p>
+      </header>
+
+      <div class="card">
+        <div class="lang-row">
+          <label class="field">
+            <span class="fl">源语言</span>
+            <select id="sourceLang"></select>
+          </label>
+          <button class="btn ghost swap" id="btnSwap" type="button" title="互换源语言与目标语言">⇄</button>
+          <label class="field">
+            <span class="fl">目标语言</span>
+            <select id="targetLang"></select>
+          </label>
+        </div>
+        <p class="hint" id="langHint">源语言选「自动检测」时由模型自行判断原文语言。</p>
+
+        <label class="field">
+          <span class="fl">译文显示方式</span>
+          <select id="displayMode">
+            <option value="replace">仅显示译文（原地替换）</option>
+            <option value="bilingual">译文 + 原文对照</option>
+          </select>
+        </label>
+
+        <div class="switches">
+          <label class="switch">
+            <input type="checkbox" id="disableThinking">
+            <span class="track"></span>
+            <span class="sw-label">快速模式<em>关闭模型思考链，翻译更快更省 token（接口不支持时自动降级）</em></span>
+          </label>
+          <label class="switch">
+            <input type="checkbox" id="selectionTranslate">
+            <span class="track"></span>
+            <span class="sw-label">划词翻译<em>选中文字后浮出「译」按钮</em></span>
+          </label>
+          <label class="switch">
+            <input type="checkbox" id="autoTranslate">
+            <span class="track"></span>
+            <span class="sw-label">自动翻译<em>打开网页后自动翻译整页</em></span>
+          </label>
+        </div>
+
+        <div class="actions">
+          <button class="btn solid" id="btnSaveLang" type="button">保存设置</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 历史记录 ============ -->
+    <section class="tab" id="tab-history">
+      <header class="page-head">
+        <h2>历史记录</h2>
+        <p>每次翻译/总结的用量与内容，默认只存在本机</p>
+      </header>
+
+      <div class="card">
+        <div class="toolbar">
+          <select id="historyFilter">
+            <option value="">全部类型</option>
+            <option value="page">整页翻译</option>
+            <option value="selection">划词翻译</option>
+            <option value="menu">右键翻译</option>
+            <option value="summary">网页总结</option>
+          </select>
+          <input id="historySearch" type="text" placeholder="搜索原文、译文、网址或模型…">
+          <span class="spacer"></span>
+          <button class="btn ghost sm" id="btnClearHistory" type="button">清空历史</button>
+        </div>
+
+        <div class="toolbar sub">
+          <label class="switch inline-switch">
+            <input type="checkbox" id="historyEnabled">
+            <span class="track"></span>
+            <span class="sw-label">记录历史<em>关闭后不再新增记录，已有记录保留</em></span>
+          </label>
+          <span class="spacer"></span>
+          <label class="switch inline-switch">
+            <input type="checkbox" id="historyStoreText">
+            <span class="track"></span>
+            <span class="sw-label">保存正文<em>关闭则只留元信息（类型/语言/token），不存原文译文</em></span>
+          </label>
+          <label class="field inline-field">
+            <span class="fl">最多保留</span>
+            <select id="historyLimit">
+              <option value="100">100 条</option>
+              <option value="300">300 条</option>
+              <option value="500">500 条</option>
+              <option value="1000">1000 条</option>
+            </select>
+          </label>
+        </div>
+
+        <ul class="history" id="historyList"></ul>
+        <p class="empty" id="historyEmpty" hidden>还没有历史记录。去翻译一个页面试试？</p>
+      </div>
+    </section>
+
+    <!-- ============ 用量统计 ============ -->
+    <section class="tab" id="tab-usage">
+      <header class="page-head">
+        <h2>用量统计</h2>
+        <p>token 消耗按天、按模型、按操作类型看</p>
+      </header>
+
+      <div class="cards">
+        <div class="card stat">
+          <span class="stat-label">累计 token</span>
+          <strong class="stat-value" id="usTokens">—</strong>
+          <span class="stat-sub" id="usTokensSub">&nbsp;</span>
+        </div>
+        <div class="card stat">
+          <span class="stat-label">输入 / 输出</span>
+          <strong class="stat-value" id="usSplit">—</strong>
+          <span class="stat-sub" id="usSplitSub">&nbsp;</span>
+        </div>
+        <div class="card stat">
+          <span class="stat-label">近 7 天</span>
+          <strong class="stat-value" id="usWeek">—</strong>
+          <span class="stat-sub" id="usWeekSub">&nbsp;</span>
+        </div>
+        <div class="card stat">
+          <span class="stat-label">估算费用</span>
+          <strong class="stat-value" id="usCost">—</strong>
+          <span class="stat-sub" id="usCostSub">&nbsp;</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h3>近 14 天 token 消耗</h3>
+          <span class="muted sm" id="chartRange"></span>
+        </div>
+        <div class="chart" id="usageChart"></div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-head"><h3>按模型</h3></div>
+          <table class="table" id="byModelTable">
+            <thead><tr><th>模型</th><th class="num">请求</th><th class="num">token</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="card">
+          <div class="card-head"><h3>按操作类型</h3></div>
+          <table class="table" id="byTypeTable">
+            <thead><tr><th>类型</th><th class="num">请求</th><th class="num">token</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>费用估算（可选）</h3></div>
+        <p class="hint">填入你所用服务的单价即可看到估算费用；留 0 表示不计算。单价请以服务商官网为准，这里不做内置，避免过期误导。</p>
+        <div class="price-row">
+          <label class="field">
+            <span class="fl">输入单价（元 / 百万 token）</span>
+            <input id="pricePromptPerM" type="number" min="0" step="0.1" placeholder="0">
+          </label>
+          <label class="field">
+            <span class="fl">输出单价（元 / 百万 token）</span>
+            <input id="priceCompletionPerM" type="number" min="0" step="0.1" placeholder="0">
+          </label>
+          <button class="btn solid" id="btnSavePrice" type="button">保存单价</button>
+        </div>
+        <div class="actions">
+          <button class="btn danger" id="btnClearStats" type="button">清空统计与历史</button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<div class="flash" id="flash" hidden></div>
+<script type="module" src="options.js"></script>
+</body>
+</html>

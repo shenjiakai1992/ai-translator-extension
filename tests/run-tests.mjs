@@ -9,7 +9,7 @@
 
 import http from 'node:http';
 import { testSettings, LOCAL_CONFIG } from './local.config.mjs';
-import { group, test, info, assert, assertEqual, summary } from './harness.mjs';
+import { group, test, info, assert, assertEqual, assertMatch, summary } from './harness.mjs';
 import {
   chunkArray,
   splitWhitespace,
@@ -22,6 +22,18 @@ import {
   hasCJK,
 } from '../src/lib/text-utils.js';
 import { normalizeChatUrl, inspectBaseUrl, chat, testConnection, resetCapabilityCache } from '../src/lib/llm.js';
+import {
+  dayKey,
+  truncatePreview,
+  emptyStats,
+  addUsage,
+  pruneStats,
+  makeHistoryEntry,
+  pushHistory,
+  summarizeStats,
+  HISTORY_HARD_LIMIT,
+  PREVIEW_LIMIT,
+} from '../src/lib/history.js';
 import { translateTexts, translateOne, summarizeContent, mapPool } from '../src/lib/translator.js';
 import { languagePrompt } from '../src/lib/settings.js';
 
@@ -170,6 +182,157 @@ async function runUnitTests() {
     assertEqual(languagePrompt('zh-CN'), '简体中文');
     assertEqual(languagePrompt('en'), '英语');
     assertEqual(languagePrompt('未知语言'), '简体中文', '未知语言应回退到简体中文');
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/* A2 组：历史记录与用量统计（纯函数）                                 */
+/* ------------------------------------------------------------------ */
+
+async function runHistoryTests() {
+  group('A2. 历史记录与用量统计（纯函数）');
+
+  await test('dayKey 按本地时区生成 YYYY-MM-DD', () => {
+    assertEqual(dayKey(new Date(2026, 8, 13, 0, 0, 0).getTime()), '2026-09-13');
+    assertEqual(dayKey(new Date(2026, 0, 5, 23, 59, 0).getTime()), '2026-01-05');
+    assertMatch(dayKey(), /^\d{4}-\d{2}-\d{2}$/, '默认参数应返回今天的日期串');
+  });
+
+  await test('truncatePreview 超长才截断，并标注原长度', () => {
+    assertEqual(truncatePreview('短文本'), '短文本');
+    assertEqual(truncatePreview(''), '');
+    const long = 'a'.repeat(PREVIEW_LIMIT + 50);
+    const out = truncatePreview(long);
+    assert(out.length > PREVIEW_LIMIT, '应保留截断提示');
+    assert(out.startsWith('a'.repeat(PREVIEW_LIMIT)), '前缀应保留原文');
+    assert(out.includes(`共 ${long.length} 字`), '应标注原始长度');
+    assertEqual(truncatePreview(long, 10).slice(0, 10), 'aaaaaaaaaa', '自定义长度应生效');
+  });
+
+  await test('addUsage 按天/模型/类型三个维度累加', () => {
+    let stats = emptyStats();
+    stats = addUsage(stats, { ts: new Date(2026, 8, 13, 10).getTime(), model: 'm1', type: 'page', prompt: 100, completion: 50, chars: 200, items: 5 });
+    stats = addUsage(stats, { ts: new Date(2026, 8, 13, 15).getTime(), model: 'm1', type: 'selection', prompt: 20, completion: 10, chars: 30, items: 1 });
+    stats = addUsage(stats, { ts: new Date(2026, 8, 12, 9).getTime(), model: 'm2', type: 'summary', prompt: 300, completion: 100, chars: 900, items: 1 });
+
+    assertEqual(stats.total.requests, 3);
+    assertEqual(stats.total.prompt, 420);
+    assertEqual(stats.total.completion, 160);
+    assertEqual(stats.total.tokens, 580, 'tokens 应在缺省时自动取 prompt+completion');
+    assertEqual(stats.total.chars, 1130);
+    assertEqual(stats.total.items, 7);
+
+    assertEqual(Object.keys(stats.byDay).length, 2, '应分成两天');
+    assertEqual(stats.byDay['2026-09-13'].requests, 2);
+    assertEqual(stats.byDay['2026-09-13'].tokens, 180);
+    assertEqual(stats.byDay['2026-09-12'].tokens, 400);
+
+    assertEqual(stats.byModel.m1.requests, 2);
+    assertEqual(stats.byModel.m1.tokens, 180);
+    assertEqual(stats.byModel.m2.tokens, 400);
+    assertEqual(stats.byType.page.tokens, 150);
+    assertEqual(stats.byType.summary.tokens, 400);
+    assert(stats.firstAt !== null && stats.updatedAt !== null, '应记录起止时间');
+  });
+
+  await test('addUsage 不修改入参（保持函数纯粹）', () => {
+    const base = emptyStats();
+    const next = addUsage(base, { model: 'm', type: 'page', prompt: 5, completion: 5 });
+    assertEqual(base.total.requests, 0, '原对象不应被改动');
+    assertEqual(next.total.requests, 1);
+  });
+
+  await test('pruneStats 丢弃过期天数，保留近期数据', () => {
+    const now = new Date(2026, 8, 13, 12).getTime();
+    let stats = emptyStats();
+    stats = addUsage(stats, { ts: now, model: 'm', type: 'page', prompt: 10, completion: 10 });
+    stats = addUsage(stats, { ts: now - 200 * 86400000, model: 'm', type: 'page', prompt: 99, completion: 99 });
+    const pruned = pruneStats(stats, { keepDays: 180, now });
+    assertEqual(Object.keys(pruned.byDay).length, 1, '只应留下未过期的那天');
+    assertEqual(pruned.total.tokens, 218, '总量统计不受裁剪影响');
+  });
+
+  await test('makeHistoryEntry：storeText=false 时不保存正文', () => {
+    const entry = makeHistoryEntry({
+      ts: 1789285817000,
+      type: 'page',
+      model: 'deepseek-flash',
+      sourceLang: 'auto',
+      targetLang: 'zh-CN',
+      prompt: 100,
+      completion: 60,
+      chars: 500,
+      items: 10,
+      durationMs: 3200,
+      src: 'Hello world',
+      dst: '你好，世界',
+    });
+    assertEqual(entry.tokens, 160);
+    assertEqual(entry.day, dayKey(1789285817000));
+    assertEqual(entry.src, 'Hello world');
+    assertEqual(entry.dst, '你好，世界');
+    assertMatch(entry.id, /^1789285817000-/, 'id 应包含时间戳前缀');
+
+    const noText = makeHistoryEntry({ src: 'a', dst: 'b', storeText: false });
+    assertEqual(noText.src, '', '关闭保存正文时 src 应为空');
+    assertEqual(noText.dst, '', '关闭保存正文时 dst 应为空');
+
+    const withError = makeHistoryEntry({ status: 'failed', error: 'x'.repeat(500) });
+    assertEqual(withError.status, 'failed');
+    assertEqual(withError.error.length, 300, '错误信息应被截断到 300 字');
+  });
+
+  await test('pushHistory 新记录在前，并按上限裁剪', () => {
+    let list = [];
+    for (let i = 0; i < 5; i++) list = pushHistory(list, { id: String(i) }, 3);
+    assertEqual(list.length, 3, '应被裁剪到 3 条');
+    assertEqual(list[0].id, '4', '最新的应在最前');
+    assertEqual(list[2].id, '2');
+
+    let big = [];
+    big = pushHistory(big, { id: 'x' }, 99999);
+    assertEqual(big.length, 1);
+    const capped = pushHistory(
+      Array.from({ length: 5 }, (_, i) => ({ id: String(i) })),
+      { id: 'new' },
+      HISTORY_HARD_LIMIT + 5000
+    );
+    assert(capped.length <= HISTORY_HARD_LIMIT, `上限应被限制在 ${HISTORY_HARD_LIMIT} 以内`);
+  });
+
+  await test('summarizeStats 输出面板需要的全部结构', () => {
+    const now = new Date(2026, 8, 13, 12).getTime();
+    let stats = emptyStats();
+    stats = addUsage(stats, { ts: now, model: 'm1', type: 'page', prompt: 1000000, completion: 500000 });
+    stats = addUsage(stats, { ts: now - 3 * 86400000, model: 'm2', type: 'summary', prompt: 200000, completion: 100000 });
+
+    const s = summarizeStats(stats, { days: 14, now, prices: { pricePromptPerM: 1, priceCompletionPerM: 2 } });
+    assertEqual(s.series.length, 14, '应返回 14 天序列');
+    assertEqual(s.series[13].day, '2026-09-13', '最后一天应是今天');
+    assertEqual(s.today.tokens, 1500000);
+    assertEqual(s.week.tokens, 1500000 + 300000, '近 7 天应包含 3 天前那笔');
+    assertEqual(s.byModel.length, 2);
+    assertEqual(s.byModel[0].model, 'm1', '应按 token 倒序');
+    assertEqual(s.byType[0].type, 'page');
+    assertEqual(s.byType[0].label, '整页翻译', '类型应带上中文名');
+    assertEqual(s.priced, true);
+    // 1.5M 输入 × 1 元/M = 1.5；1.0M... 实际输入 1.2M、输出 0.6M
+    const expectedCost = 1.2 * 1 + 0.6 * 2;
+    assert(Math.abs(s.cost - expectedCost) < 1e-9, `费用估算应为 ${expectedCost}，实际 ${s.cost}`);
+
+    const noPrice = summarizeStats(stats, { now });
+    assertEqual(noPrice.cost, null, '未设置单价时不应给费用数字');
+    assertEqual(noPrice.priced, false);
+  });
+
+  await test('summarizeStats 对空数据也安全', () => {
+    const s = summarizeStats(emptyStats(), { days: 7 });
+    assertEqual(s.total.tokens, 0);
+    assertEqual(s.today.tokens, 0);
+    assertEqual(s.series.length, 7);
+    assertEqual(s.byModel.length, 0);
+    assertEqual(s.byType.length, 0);
+    assertEqual(s.cost, null);
   });
 }
 
@@ -529,6 +692,7 @@ async function runLiveTests() {
 
   try {
     if (only === 'all' || only === 'unit') await runUnitTests();
+    if (only === 'all' || only === 'unit') await runHistoryTests();
     if (only === 'all' || only === 'mock') await runMockTests();
     if (only === 'all' || only === 'live') await runLiveTests();
   } catch (err) {

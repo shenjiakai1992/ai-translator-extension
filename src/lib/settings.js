@@ -25,9 +25,13 @@ export function languagePrompt(code) {
 }
 
 export function languageLabel(code) {
+  if (code === 'auto') return '自动检测';
   const hit = LANGUAGES.find((l) => l.code === code);
   return hit ? hit.label : code;
 }
+
+/** 源语言多一个「自动检测」选项；目标语言不需要，因为必须指定一个明确的目标 */
+export const SOURCE_LANGUAGES = [{ code: 'auto', label: '自动检测', prompt: '' }, ...LANGUAGES];
 
 export const DEFAULT_SETTINGS = {
   // —— 模型接入（OpenAI 兼容协议）——
@@ -36,6 +40,7 @@ export const DEFAULT_SETTINGS = {
   model: 'deepseek-flash',
 
   // —— 翻译偏好 ——
+  sourceLang: 'auto', // auto = 自动检测；其余同 LANGUAGES 的 code
   targetLang: 'zh-CN',
   displayMode: 'replace', // replace = 仅显示译文；bilingual = 译文 + 原文对照
   disableThinking: true, // 关闭模型思考链，翻译更快更省 token（不支持的接口会自动降级）
@@ -51,11 +56,19 @@ export const DEFAULT_SETTINGS = {
   // —— 总结偏好 ——
   summaryStyle: 'bullets', // bullets = 要点式；outline = 大纲式
   summaryMaxChars: 12000,
+
+  // —— 历史记录与用量统计 ——
+  historyEnabled: true, // 是否记录翻译历史（关闭后不再新增，已有记录保留）
+  historyLimit: 300, // 最多保留多少条历史
+  historyStoreText: true, // 是否在历史里保存原文/译文正文（关闭则只留元信息）
+  pricePromptPerM: 0, // 输入单价，元 / 百万 token；0 = 不计费
+  priceCompletionPerM: 0, // 输出单价，元 / 百万 token；0 = 不计费
 };
 
 /** 内容脚本能看到的字段（不含 API Key，避免密钥出现在页面上下文） */
 export function toPublicSettings(s) {
   return {
+    sourceLang: s.sourceLang,
     targetLang: s.targetLang,
     displayMode: s.displayMode,
     selectionTranslate: s.selectionTranslate,

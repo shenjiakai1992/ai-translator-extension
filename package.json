@@ -1,6 +1,6 @@
 {
   "name": "ai-translator-extension",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
   "description": "Chrome AI 翻译插件：全页翻译 / 划词翻译 / 网页总结，兼容任意 OpenAI 协议模型",

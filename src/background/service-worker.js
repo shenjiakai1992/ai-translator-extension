@@ -5,9 +5,18 @@
  */
 
 import { MSG, PAGE_CMD } from '../lib/protocol.js';
-import { getSettings, saveSettings, toPublicSettings, languagePrompt, languageLabel } from '../lib/settings.js';
+import { getSettings, saveSettings, toPublicSettings, languagePrompt } from '../lib/settings.js';
 import { testConnection, LLMError } from '../lib/llm.js';
 import { translateTexts, translateOne, summarizeContent } from '../lib/translator.js';
+import {
+  recordEvent,
+  getHistory,
+  getStats,
+  deleteHistoryEntry,
+  clearHistory,
+  clearAll,
+  summarizeStats,
+} from '../lib/history.js';
 
 const CONTEXT_MENU_ID = 'aitx-translate-selection';
 
@@ -68,9 +77,16 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
     const settings = await getSettings();
     const label = languagePrompt(settings.targetLang);
+    const srcLabel = sourceLabelOf(settings);
     setBadge(tab.id, '…', '#4f7cff');
+    const startedAt = Date.now();
     try {
-      const { translation, model } = await translateOne({ settings, text, targetLangLabel: label });
+      const { translation, model, usage } = await translateOne({
+        settings,
+        text,
+        targetLangLabel: label,
+        sourceLangLabel: srcLabel,
+      });
       await sendToTab(tab.id, {
         type: MSG.SHOW_TRANSLATION,
         original: text,
@@ -78,7 +94,40 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         model,
       });
       setBadge(tab.id, '', '#00000000');
+      record(
+        {
+          type: 'menu',
+          model,
+          sourceLang: settings.sourceLang,
+          targetLang: settings.targetLang,
+          items: 1,
+          chars: text.length,
+          prompt: usage?.prompt_tokens,
+          completion: usage?.completion_tokens,
+          durationMs: Date.now() - startedAt,
+          url: tab.url || '',
+          title: tab.title || '',
+          src: text,
+          dst: translation,
+        },
+        settings
+      );
     } catch (err) {
+      record(
+        {
+          type: 'menu',
+          model: settings.model,
+          sourceLang: settings.sourceLang,
+          targetLang: settings.targetLang,
+          items: 1,
+          chars: text.length,
+          durationMs: Date.now() - startedAt,
+          status: 'failed',
+          error: err?.message || String(err),
+          src: text,
+        },
+        settings
+      );
       setBadge(tab.id, '!', '#e5484d');
       await sendToTab(tab.id, {
         type: MSG.SHOW_TRANSLATION,
@@ -178,6 +227,27 @@ function startKeepAlive() {
   return () => clearInterval(timer);
 }
 
+/** 源语言的 prompt 形式；auto 时返回空串，由模型自行判断 */
+function sourceLabelOf(settings) {
+  const code = settings.sourceLang || 'auto';
+  return code === 'auto' ? '' : languagePrompt(code);
+}
+
+/** 写历史与统计。失败不能影响主流程，所以内部吞掉异常。 */
+async function record(payload, settings) {
+  try {
+    return await recordEvent({
+      ...payload,
+      historyEnabled: settings.historyEnabled !== false,
+      historyLimit: settings.historyLimit,
+      storeText: settings.historyStoreText !== false,
+    });
+  } catch (err) {
+    console.warn('[AI 翻译助手] 记录历史失败', err);
+    return { recorded: false };
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /* 消息路由                                                            */
 /* ------------------------------------------------------------------ */
@@ -214,6 +284,8 @@ async function handleMessage(msg, sender) {
     }
 
     case MSG.TRANSLATE_TEXTS: {
+      // 注意：整页翻译在这里是按批次来的，所以**不在这里写历史**——
+      // 内容脚本会累计各批用量，等整页结束后统一上报一次（见 RECORD_HISTORY）。
       const stop = startKeepAlive();
       try {
         const label = languagePrompt(msg.targetLang || settings.targetLang);
@@ -221,6 +293,7 @@ async function handleMessage(msg, sender) {
           settings,
           texts: msg.texts || [],
           targetLangLabel: label,
+          sourceLangLabel: sourceLabelOf(settings),
         });
       } finally {
         stop();
@@ -230,8 +303,50 @@ async function handleMessage(msg, sender) {
     case MSG.TRANSLATE_ONE: {
       const label = languagePrompt(msg.targetLang || settings.targetLang);
       const stop = startKeepAlive();
+      const startedAt = Date.now();
       try {
-        return await translateOne({ settings, text: msg.text, targetLangLabel: label });
+        const res = await translateOne({
+          settings,
+          text: msg.text,
+          targetLangLabel: label,
+          sourceLangLabel: sourceLabelOf(settings),
+        });
+        record(
+          {
+            type: msg.origin === 'menu' ? 'menu' : 'selection',
+            model: res.model,
+            sourceLang: settings.sourceLang,
+            targetLang: settings.targetLang,
+            items: 1,
+            chars: (msg.text || '').length,
+            prompt: res.usage?.prompt_tokens,
+            completion: res.usage?.completion_tokens,
+            durationMs: Date.now() - startedAt,
+            url: sender?.tab?.url || '',
+            title: sender?.tab?.title || '',
+            src: msg.text,
+            dst: res.translation,
+          },
+          settings
+        );
+        return res;
+      } catch (err) {
+        record(
+          {
+            type: 'selection',
+            model: settings.model,
+            sourceLang: settings.sourceLang,
+            targetLang: settings.targetLang,
+            items: 1,
+            chars: (msg.text || '').length,
+            durationMs: Date.now() - startedAt,
+            status: 'failed',
+            error: err?.message || String(err),
+            src: msg.text,
+          },
+          settings
+        );
+        throw err;
       } finally {
         stop();
       }
@@ -240,8 +355,9 @@ async function handleMessage(msg, sender) {
     case MSG.SUMMARIZE: {
       const label = languagePrompt(msg.targetLang || settings.targetLang);
       const stop = startKeepAlive();
+      const startedAt = Date.now();
       try {
-        return await summarizeContent({
+        const res = await summarizeContent({
           settings,
           title: msg.title,
           url: msg.url,
@@ -249,10 +365,97 @@ async function handleMessage(msg, sender) {
           targetLangLabel: label,
           style: msg.style || settings.summaryStyle,
         });
+        record(
+          {
+            type: 'summary',
+            model: res.model,
+            sourceLang: settings.sourceLang,
+            targetLang: settings.targetLang,
+            items: 1,
+            chars: (msg.text || '').length,
+            prompt: res.usage?.prompt_tokens,
+            completion: res.usage?.completion_tokens,
+            durationMs: Date.now() - startedAt,
+            url: msg.url || '',
+            title: msg.title || '',
+            dst: res.summary,
+          },
+          settings
+        );
+        return res;
+      } catch (err) {
+        record(
+          {
+            type: 'summary',
+            model: settings.model,
+            sourceLang: settings.sourceLang,
+            targetLang: settings.targetLang,
+            chars: (msg.text || '').length,
+            durationMs: Date.now() - startedAt,
+            status: 'failed',
+            error: err?.message || String(err),
+            url: msg.url || '',
+            title: msg.title || '',
+          },
+          settings
+        );
+        throw err;
       } finally {
         stop();
       }
     }
+
+    // —— 历史记录与用量统计 ——
+
+    case MSG.RECORD_HISTORY: {
+      // 内容脚本在整页翻译结束后统一上报，msg 里带累计用量
+      const r = await record(
+        {
+          type: 'page',
+          model: msg.model || settings.model,
+          sourceLang: settings.sourceLang,
+          targetLang: settings.targetLang,
+          items: msg.items,
+          chars: msg.chars,
+          prompt: msg.prompt,
+          completion: msg.completion,
+          durationMs: msg.durationMs,
+          status: msg.status,
+          error: msg.error,
+          url: msg.url || sender?.tab?.url || '',
+          title: msg.title || sender?.tab?.title || '',
+          src: msg.src,
+          dst: msg.dst,
+        },
+        settings
+      );
+      return r;
+    }
+
+    case MSG.GET_HISTORY: {
+      const list = await getHistory();
+      return { list, limit: settings.historyLimit, enabled: settings.historyEnabled !== false };
+    }
+
+    case MSG.DELETE_HISTORY:
+      return deleteHistoryEntry(msg.id);
+
+    case MSG.CLEAR_HISTORY:
+      return clearHistory();
+
+    case MSG.GET_STATS: {
+      const stats = await getStats();
+      return summarizeStats(stats, {
+        days: msg.days || 14,
+        prices: {
+          pricePromptPerM: settings.pricePromptPerM,
+          priceCompletionPerM: settings.priceCompletionPerM,
+        },
+      });
+    }
+
+    case MSG.CLEAR_STATS:
+      return clearAll();
 
     // 页面翻译完成/还原时刷新角标
     case 'AITX_PAGE_STATE': {

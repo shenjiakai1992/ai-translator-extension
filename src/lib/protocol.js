@@ -16,7 +16,19 @@ export const MSG = {
   SHOW_TRANSLATION: 'AITX_SHOW_TRANSLATION',
   /** 探活指定标签页的内容脚本，缺失时主动补注入 */
   ENSURE_CONTENT: 'AITX_ENSURE_CONTENT',
+
+  // —— 历史记录与用量统计（管理面板用）——
+  /** 内容脚本在整页翻译结束后，一次性上报总用量（避免按批次记成多条） */
+  RECORD_HISTORY: 'AITX_RECORD_HISTORY',
+  GET_HISTORY: 'AITX_GET_HISTORY',
+  DELETE_HISTORY: 'AITX_DELETE_HISTORY',
+  CLEAR_HISTORY: 'AITX_CLEAR_HISTORY',
+  GET_STATS: 'AITX_GET_STATS',
+  CLEAR_STATS: 'AITX_CLEAR_STATS',
 };
+
+// 管理面板 → 后台：面板本身也是扩展页面，可直接读 storage，
+// 但历史/统计的写入统一走后台，保证只有一处改动数据。
 
 // 弹窗 → 页面
 export const PAGE_CMD = {

@@ -143,6 +143,7 @@ function serveFixtures() {
 let puppeteer = null;
 let browser = null;
 let ctrl = null; // 扩展页面，用来调用 chrome.* API
+let panel = null; // 管理面板页面
 let page = null; // 被测网页
 let server = null;
 let fixtureOrigin = '';
@@ -248,6 +249,21 @@ async function openCtrlPage(retries = 24) {
     await sleep(700);
   }
   throw new Error(`扩展页面一直打不开：${lastErr}`);
+}
+
+/** 打开管理面板页（扩展页面，交互统一走 evaluate，别用 click/$eval） */
+async function openPanel() {
+  const p = await browser.newPage();
+  await p.setViewport({ width: 1280, height: 1000 });
+  await p.goto(`chrome-extension://${extId}/src/options/options.html`, {
+    waitUntil: 'domcontentloaded',
+    timeout: 10000,
+  });
+  await waitFor(
+    () => p.evaluate(() => document.getElementById('sideStatus')?.textContent !== '正在读取配置…'),
+    { timeout: 15000, interval: 300, label: '管理面板初始化' }
+  );
+  return p;
 }
 
 /** 把被测页面恢复到干净状态：写入指定配置 → 重新加载 → 等内容脚本就绪 */
@@ -798,8 +814,322 @@ async function main() {
     await blank.close();
   });
 
+  /* ---------------- 管理面板 ---------------- */
+  group('6. 管理面板');
+
+  await test('弹窗里有打开管理面板的入口', async () => {
+    await ctrl.bringToFront();
+    await ctrl.reload({ waitUntil: 'domcontentloaded' });
+    const entry = await waitFor(
+      () =>
+        ctrl.evaluate(() => {
+          const btn = document.getElementById('btnOpenPanel');
+          if (!btn) return false;
+          const rect = btn.getBoundingClientRect();
+          return { text: btn.textContent.trim(), visible: rect.width > 0 && rect.height > 0 };
+        }),
+      { timeout: 8000, label: '弹窗管理面板入口' }
+    );
+    assert(entry.visible, '入口按钮应可见');
+    assert(entry.text.includes('管理面板'), `按钮文案应含「管理面板」，实际：${entry.text}`);
+    const api = await ctrl.evaluate(() => typeof chrome.runtime.openOptionsPage);
+    assertEqual(api, 'function', '应有 openOptionsPage 可用');
+    const manifestOptions = await ctrl.evaluate(() => chrome.runtime.getManifest().options_ui);
+    assert(manifestOptions?.page?.includes('options.html'), `manifest 应声明 options_ui，实际：${JSON.stringify(manifestOptions)}`);
+    info(`入口文案：${entry.text}`);
+  });
+
+  await test('管理面板能打开，五个标签页都能切换', async () => {
+    panel = await openPanel();
+    const tabs = await panel.evaluate(() =>
+      [...document.querySelectorAll('#nav .nav-item')].map((b) => ({ tab: b.dataset.tab, text: b.textContent.trim() }))
+    );
+    assertEqual(tabs.length, 5, `应有 5 个标签页，实际 ${tabs.length}`);
+    const expected = ['overview', 'model', 'language', 'history', 'usage'];
+    assertEqual(tabs.map((t) => t.tab).join(','), expected.join(','), '标签顺序应固定');
+
+    for (const t of expected) {
+      const ok = await panel.evaluate((name) => {
+        document.querySelector(`#nav [data-tab="${name}"]`).click();
+        const section = document.getElementById(`tab-${name}`);
+        const active = section.classList.contains('active');
+        const visible = section.offsetParent !== null;
+        return active && visible;
+      }, t);
+      assert(ok, `标签 ${t} 应能切换并显示`);
+    }
+    info(tabs.map((t) => t.text.replace(/\d+/g, '')).join(' / '));
+  });
+
+  await test('概览页显示真实的累计用量', async () => {
+    await panel.evaluate(() => document.querySelector('#nav [data-tab="overview"]').click());
+    const data = await panel.evaluate(() => ({
+      requests: document.getElementById('ovRequests').textContent,
+      tokens: document.getElementById('ovTokens').textContent,
+      today: document.getElementById('ovToday').textContent,
+      chars: document.getElementById('ovChars').textContent,
+      baseUrl: document.getElementById('ovBaseUrl').textContent,
+      model: document.getElementById('ovModel').textContent,
+      key: document.getElementById('ovKey').textContent,
+      langs: document.getElementById('ovLangs').textContent,
+      recent: document.querySelectorAll('#ovRecent li').length,
+    }));
+    const requests = Number(data.requests.replace(/[^\d]/g, ''));
+    assert(requests >= 5, `前面已翻译多次，累计请求应 ≥5，实际：${data.requests}`);
+    assert(data.tokens !== '—' && data.tokens !== '0', `累计 token 应大于 0，实际：${data.tokens}`);
+    assertEqual(data.baseUrl, settings.baseUrl, '应显示当前接口地址');
+    assertEqual(data.model, settings.model, '应显示当前模型');
+    assert(data.key.includes('••'), 'API Key 应脱敏显示');
+    assert(data.langs.includes('→'), `应显示语言方向，实际：${data.langs}`);
+    assert(data.recent > 0, '最近翻译列表应有内容');
+    info(`累计 ${data.requests} 次请求 / ${data.tokens} token / ${data.chars} 字 · 最近 ${data.recent} 条`);
+  });
+
+  await test('模型配置页回填正确，且能保存新配置', async () => {
+    await panel.evaluate(() => document.querySelector('#nav [data-tab="model"]').click());
+    const before = await panel.evaluate(() => ({
+      baseUrl: document.getElementById('baseUrl').value,
+      apiKey: document.getElementById('apiKey').value,
+      model: document.getElementById('model').value,
+      hint: document.getElementById('baseUrlHint').textContent,
+    }));
+    assertEqual(before.baseUrl, settings.baseUrl, 'Base URL 应回填');
+    assertEqual(before.apiKey, settings.apiKey, 'API Key 应回填');
+    assertEqual(before.model, settings.model, '模型应回填');
+    assert(!/\bbad\b/.test(before.hint), '正常地址不应报错');
+
+    // 误填密钥管理页应给提示
+    const bad = await panel.evaluate(() => {
+      const input = document.getElementById('baseUrl');
+      input.value = 'https://platform.deepseek.com/api_keys';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      return { text: document.getElementById('baseUrlHint').textContent, cls: document.getElementById('baseUrlHint').className };
+    });
+    assert(bad.cls.includes('bad') && bad.text.includes('密钥管理'), `应提示密钥管理页，实际：${bad.text}`);
+
+    // 改回正确地址并保存，确认写进 storage
+    await panel.evaluate((url) => {
+      const input = document.getElementById('baseUrl');
+      input.value = url;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      document.getElementById('btnSaveModel').click();
+    }, settings.baseUrl);
+    await waitFor(
+      async () =>
+        (await ctrl.evaluate(async () => (await chrome.storage.local.get('aitx_settings')).aitx_settings.baseUrl)) ===
+        settings.baseUrl,
+      { timeout: 5000, label: '面板保存的配置写回 storage' }
+    );
+    info('保存 → storage 校验通过');
+  });
+
+  await test('语言页能切换方向，互换按钮生效', async () => {
+    await panel.evaluate(() => document.querySelector('#nav [data-tab="language"]').click());
+    const opts = await panel.evaluate(() => ({
+      source: [...document.getElementById('sourceLang').options].map((o) => o.value),
+      target: [...document.getElementById('targetLang').options].map((o) => o.value),
+    }));
+    assert(opts.source.includes('auto'), '源语言应包含「自动检测」');
+    assert(!opts.target.includes('auto'), '目标语言不应有「自动检测」');
+    assertEqual(opts.source.length, opts.target.length + 1, '源语言应比目标语言多一个 auto 选项');
+
+    // 先设成 en → zh-CN，再点互换
+    await panel.evaluate(() => {
+      const s = document.getElementById('sourceLang');
+      const t = document.getElementById('targetLang');
+      s.value = 'en';
+      t.value = 'zh-CN';
+      s.dispatchEvent(new Event('change', { bubbles: true }));
+      document.getElementById('btnSwap').click();
+    });
+    const swapped = await panel.evaluate(() => ({
+      source: document.getElementById('sourceLang').value,
+      target: document.getElementById('targetLang').value,
+      hint: document.getElementById('langHint').textContent,
+    }));
+    assertEqual(swapped.source, 'zh-CN', '互换后源语言应为 zh-CN');
+    assertEqual(swapped.target, 'en', '互换后目标语言应为 en');
+    assert(swapped.hint.includes('中文'), `提示文案应跟着更新，实际：${swapped.hint}`);
+
+    await waitFor(
+      async () => {
+        const s = await ctrl.evaluate(async () => (await chrome.storage.local.get('aitx_settings')).aitx_settings);
+        return s.sourceLang === 'zh-CN' && s.targetLang === 'en';
+      },
+      { timeout: 5000, label: '互换结果写回 storage' }
+    );
+
+    // 还原成 auto → zh-CN
+    await panel.evaluate(() => {
+      const s = document.getElementById('sourceLang');
+      const t = document.getElementById('targetLang');
+      s.value = 'auto';
+      t.value = 'zh-CN';
+      document.getElementById('btnSaveLang').click();
+    });
+    await waitFor(
+      async () =>
+        (await ctrl.evaluate(async () => (await chrome.storage.local.get('aitx_settings')).aitx_settings.sourceLang)) ===
+        'auto',
+      { timeout: 5000, label: '语言设置还原' }
+    );
+    info('方向切换 / 互换 / 保存均写回 storage');
+  });
+
+  await test('历史记录页展示真实记录，可展开、可筛选、可删除', async () => {
+    await panel.evaluate(() => document.querySelector('#nav [data-tab="history"]').click());
+    await waitFor(
+      () => panel.evaluate(() => document.querySelectorAll('#historyList .hitem').length > 0),
+      { timeout: 10000, label: '历史列表渲染' }
+    );
+
+    const total = await panel.evaluate(() => document.querySelectorAll('#historyList .hitem').length);
+    assert(total >= 5, `历史条数应 ≥5，实际 ${total}`);
+    const pill = await panel.evaluate(() => document.getElementById('historyPill').textContent);
+    assertEqual(Number(pill), total, '侧栏角标数应与列表一致');
+
+    // 失败记录应带类型标签 + 「失败」状态标签，并保留错误信息
+    const failedItem = await panel.evaluate(() => {
+      const item = [...document.querySelectorAll('#historyList .hitem')].find((i) => i.querySelector('.tag.failed'));
+      if (!item) return null;
+      item.querySelector('.hhead').click();
+      return {
+        tags: [...item.querySelectorAll('.tag')].map((t) => t.textContent.trim()),
+        body: item.querySelector('.hbody').textContent,
+      };
+    });
+    assert(failedItem, '前面有失败的翻译，应存在一条失败记录');
+    assertEqual(failedItem.tags[0], '整页翻译', '第一个标签应是类型');
+    assertEqual(failedItem.tags[1], '失败', '第二个标签应是失败状态');
+    assert(failedItem.body.includes('API Key'), `失败记录应保留错误原因，实际：${failedItem.body.slice(0, 80)}`);
+
+    // 展开一条有正文的记录，检查原文/译文区块与复制按钮
+    const opened = await panel.evaluate(() => {
+      const item = [...document.querySelectorAll('#historyList .hitem')].find((i) => i.querySelector('[data-copy]'));
+      if (!item) return { none: true };
+      item.querySelector('.hhead').click();
+      return {
+        open: item.classList.contains('open'),
+        rows: [...item.querySelectorAll('.hrow-label span')].map((s) => s.textContent),
+        meta: item.querySelector('.hrow-meta').textContent,
+        hasCopy: !!item.querySelector('[data-copy]'),
+        text: item.querySelector('.hrow-text').textContent.slice(0, 40),
+      };
+    });
+    assert(!opened.none, '应至少有一条带正文的历史记录');
+    assert(opened.open, '点击后应展开');
+    assert(opened.rows.length > 0, '展开后应有原文/译文区块');
+    assert(opened.meta.includes('token'), `元信息里应含 token，实际：${opened.meta}`);
+    assert(opened.hasCopy, '应有复制按钮');
+    info(`失败记录标签：${failedItem.tags.join(' + ')} · ${failedItem.body.slice(1, 55)}`);
+    info(`带正文记录展开：${opened.rows.join(' / ')}`);
+
+    // 按类型筛选（第一个标签是类型；失败的记录会额外多一个「失败」标签）
+    const filtered = await panel.evaluate(() => {
+      const sel = document.getElementById('historyFilter');
+      sel.value = 'page';
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
+      const items = [...document.querySelectorAll('#historyList .hitem')];
+      return {
+        count: items.length,
+        typeTags: items.map((i) => i.querySelector('.tag').textContent.trim()),
+        statusTags: items.flatMap((i) => [...i.querySelectorAll('.tag')].slice(1).map((t) => t.textContent.trim())),
+      };
+    });
+    assert(filtered.count > 0, '整页翻译筛选后应仍有记录');
+    assert(
+      filtered.typeTags.every((t) => t === '整页翻译'),
+      `筛选结果的第一标签应全是类型，实际：${filtered.typeTags.join(',')}`
+    );
+    assert(
+      filtered.statusTags.every((t) => t === '失败' || t === '部分失败'),
+      `额外的标签只应是失败状态，实际：${filtered.statusTags.join(',')}`
+    );
+    info(`筛选「整页翻译」命中 ${filtered.count} 条，其中失败状态 ${filtered.statusTags.length} 条`);
+
+    // 搜索
+    const searched = await panel.evaluate(() => {
+      const sel = document.getElementById('historyFilter');
+      sel.value = '';
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
+      const box = document.getElementById('historySearch');
+      box.value = 'Traditional deployments';
+      box.dispatchEvent(new Event('input', { bubbles: true }));
+      return document.querySelectorAll('#historyList .hitem').length;
+    });
+    assert(searched >= 1, `搜索原文关键词应命中记录，实际 ${searched}`);
+    await panel.evaluate(() => {
+      const box = document.getElementById('historySearch');
+      box.value = '';
+      box.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    // 删除一条
+    const removedOk = await panel.evaluate(async () => {
+      const before = document.querySelectorAll('#historyList .hitem').length;
+      document.querySelector('#historyList .hitem [data-del]').click();
+      await new Promise((r) => setTimeout(r, 600));
+      return { before, after: document.querySelectorAll('#historyList .hitem').length };
+    });
+    assertEqual(removedOk.after, removedOk.before - 1, '删除后应少一条');
+    await panel.screenshot({ path: path.join(OUT_DIR, '08-panel-history.png') });
+    info(`历史 ${total} 条 → 筛选/搜索/删除均正常`);
+  });
+
+  await test('用量统计页：总量、图表、分布与费用估算', async () => {
+    await panel.evaluate(() => document.querySelector('#nav [data-tab="usage"]').click());
+    await waitFor(
+      () => panel.evaluate(() => document.getElementById('usTokens').textContent !== '—'),
+      { timeout: 10000, label: '统计渲染' }
+    );
+
+    const usage = await panel.evaluate(() => ({
+      tokens: document.getElementById('usTokens').textContent,
+      split: document.getElementById('usSplit').textContent,
+      week: document.getElementById('usWeek').textContent,
+      bars: document.querySelectorAll('#usageChart rect').length,
+      barTitles: [...document.querySelectorAll('#usageChart rect title')].map((t) => t.textContent).slice(0, 2),
+      modelRows: document.querySelectorAll('#byModelTable tbody tr').length,
+      typeRows: document.querySelectorAll('#byTypeTable tbody tr').length,
+      cost: document.getElementById('usCost').textContent,
+    }));
+    assert(usage.tokens !== '0' && usage.tokens !== '—', `累计 token 应大于 0，实际：${usage.tokens}`);
+    assert(usage.split.includes('/'), `输入/输出应分开显示，实际：${usage.split}`);
+    assert(usage.bars >= 14, `图表应有 14 根柱子，实际 ${usage.bars}`);
+    assert(usage.modelRows >= 1, '按模型表应有数据');
+    assert(usage.typeRows >= 2, `按类型表应有多行，实际 ${usage.typeRows}`);
+    assertEqual(usage.cost, '未设置单价', '未填单价时不应给费用数字');
+    info(`累计 ${usage.tokens} · 输入/输出 ${usage.split} · 近7天 ${usage.week}`);
+    info(`图表首根：${usage.barTitles[0] || '(空)'}`);
+
+    // 填单价 → 出现费用估算
+    await panel.evaluate(() => {
+      document.getElementById('pricePromptPerM').value = '1';
+      document.getElementById('priceCompletionPerM').value = '2';
+      document.getElementById('btnSavePrice').click();
+    });
+    const cost = await waitFor(
+      () =>
+        panel.evaluate(() => {
+          const t = document.getElementById('usCost').textContent;
+          return t.startsWith('¥') ? t : false;
+        }),
+      { timeout: 10000, label: '费用估算出现' }
+    );
+    assert(/^¥ \d/.test(cost), `应显示估算费用，实际：${cost}`);
+    info(`设置单价后估算费用：${cost}`);
+    await panel.screenshot({ path: path.join(OUT_DIR, '09-panel-usage.png') });
+
+    // 还原单价，避免影响后续用例
+    await panel.evaluate(() => {
+      document.getElementById('pricePromptPerM').value = '0';
+      document.getElementById('priceCompletionPerM').value = '0';
+      document.getElementById('btnSavePrice').click();
+    });
+  });
+
   /* ---------------- 收尾 ---------------- */
-  group('6. 收尾');
+  group('7. 收尾');
 
   await test('回到原文状态并生成完整截图存档', async () => {
     await resetFixture();
@@ -816,8 +1146,18 @@ async function main() {
     await page.bringToFront();
     await sleep(400);
     await page.screenshot({ path: path.join(OUT_DIR, '07-original-page.png') });
+    if (panel) {
+      try {
+        await panel.bringToFront();
+        await panel.evaluate(() => document.querySelector('#nav [data-tab="overview"]').click());
+        await sleep(900);
+        await panel.screenshot({ path: path.join(OUT_DIR, '10-panel-overview.png') });
+      } catch {
+        /* 面板页可能已失效，截图不是必须的 */
+      }
+    }
     const files = fs.readdirSync(OUT_DIR).filter((f) => f.endsWith('.png')).sort();
-    assert(files.length >= 6, `应生成至少 6 张截图，实际 ${files.length}：${files.join(', ')}`);
+    assert(files.length >= 9, `应生成至少 9 张截图，实际 ${files.length}：${files.join(', ')}`);
     info(`截图目录：${OUT_DIR}`);
     info(files.join(', '));
   });

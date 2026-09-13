@@ -34,6 +34,7 @@ const ui = {
   testOut: el('testOut'),
   flash: el('flash'),
   footNote: el('footNote'),
+  btnOpenPanel: el('btnOpenPanel'),
 };
 
 let settings = null;
@@ -226,6 +227,12 @@ function expandSettings(expand) {
 }
 
 ui.btnToggleSettings.addEventListener('click', () => expandSettings(ui.settings.hidden));
+
+// 打开完整管理面板（历史记录 + 用量统计 + 完整配置）
+ui.btnOpenPanel.addEventListener('click', () => {
+  chrome.runtime.openOptionsPage();
+  window.close();
+});
 
 // 页面用不了时的「重试」：重新探活并按需补注入内容脚本
 ui.btnRetry.addEventListener('click', async () => {

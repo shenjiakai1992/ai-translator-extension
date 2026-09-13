@@ -16,15 +16,21 @@ const COMMON_RULES = `翻译规则：
 
 /**
  * 批量翻译：一次翻多条，返回严格 JSON 数组。
- * @param {{texts: string[], targetLangLabel: string, sourceLang?: string}} opts
+ * @param {{texts: string[], targetLangLabel: string, sourceLangLabel?: string}} opts
  */
-export function buildBatchTranslateMessages({ texts, targetLangLabel }) {
+export function buildBatchTranslateMessages({ texts, targetLangLabel, sourceLangLabel }) {
   const n = texts.length;
   const system =
     '你是一个高速、精准的翻译引擎。你的唯一任务是把用户给出的 JSON 数组翻译成指定语言，' +
     '并且只输出一个同样长度的 JSON 数组。你从不输出解释、前言、markdown 代码块或任何额外文字。';
 
+  const sourceLine =
+    sourceLangLabel && sourceLangLabel !== 'auto'
+      ? `源语言是「${sourceLangLabel}」。`
+      : '源语言由你自动判断（可能是英文、中文或其他语言）。';
+
   const user = `把下面 JSON 数组中的 ${n} 个字符串全部翻译成「${targetLangLabel}」。
+${sourceLine}
 
 ${COMMON_RULES}
 7. 输出必须是一个 JSON 数组，元素个数严格等于 ${n}，顺序与输入一一对应。
@@ -42,9 +48,11 @@ ${JSON.stringify(texts, null, 0)}`;
 /**
  * 单条翻译（划词、右键菜单用）。同样要求纯文本输出。
  */
-export function buildSingleTranslateMessages({ text, targetLangLabel, sourceLang }) {
+export function buildSingleTranslateMessages({ text, targetLangLabel, sourceLangLabel }) {
   const srcHint =
-    sourceLang && sourceLang !== 'auto' ? `源语言可能是「${sourceLang}」，` : '';
+    sourceLangLabel && sourceLangLabel !== 'auto'
+      ? `源语言是「${sourceLangLabel}」，`
+      : '';
   const system =
     '你是一个专业的翻译引擎。你只输出译文本身，不输出原文、不输出解释、不输出引号或代码块。';
   const user = `${srcHint}请把下面的内容翻译成「${targetLangLabel}」。

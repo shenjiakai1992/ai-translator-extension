@@ -30,8 +30,8 @@ export async function mapPool(items, limit, worker) {
 /**
  * 请求一批文本的翻译。返回值长度必须与入参一致，否则抛错交由上层拆批。
  */
-async function requestBatch({ texts, targetLangLabel, settings, signal }) {
-  const messages = buildBatchTranslateMessages({ texts, targetLangLabel });
+async function requestBatch({ texts, targetLangLabel, sourceLangLabel, settings, signal }) {
+  const messages = buildBatchTranslateMessages({ texts, targetLangLabel, sourceLangLabel });
   // 单批最多 40 条，按每条平均 40 token 输出估算，预留充足额度给模型可能的思考过程
   const maxTokens = Math.min(8192, Math.max(2048, 512 + texts.length * 160));
   const res = await chat({ settings, messages, maxTokens, signal });
@@ -51,22 +51,23 @@ async function requestBatch({ texts, targetLangLabel, settings, signal }) {
  * 带自愈能力的批量翻译：一批失败就二分拆小重试，直到单条。
  * 单条仍失败时保留原文，并把错误收集起来（不阻塞整页）。
  */
-async function translateChunkWithFallback({ texts, targetLangLabel, settings, signal, errors }) {
+async function translateChunkWithFallback({ texts, targetLangLabel, sourceLangLabel, settings, signal, errors }) {
   try {
-    const { translations, usage } = await requestBatch({ texts, targetLangLabel, settings, signal });
-    return { translations, usage };
+    const { translations, usage, model } = await requestBatch({ texts, targetLangLabel, sourceLangLabel, settings, signal });
+    return { translations, usage, model };
   } catch (err) {
     if (err instanceof LLMError && (err.fatal || err.code === 'aborted')) throw err;
     if (err?.code === 'no_api_key' || err?.code === 'no_base_url' || err?.code === 'no_model') throw err;
 
     if (texts.length === 1) {
       errors.push({ text: texts[0].slice(0, 40), message: err?.message || String(err) });
-      return { translations: [texts[0]], usage: null, failed: 1 };
+      return { translations: [texts[0]], usage: null, model: '', failed: 1 };
     }
     const mid = Math.ceil(texts.length / 2);
     const left = await translateChunkWithFallback({
       texts: texts.slice(0, mid),
       targetLangLabel,
+      sourceLangLabel,
       settings,
       signal,
       errors,
@@ -74,6 +75,7 @@ async function translateChunkWithFallback({ texts, targetLangLabel, settings, si
     const right = await translateChunkWithFallback({
       texts: texts.slice(mid),
       targetLangLabel,
+      sourceLangLabel,
       settings,
       signal,
       errors,
@@ -81,6 +83,7 @@ async function translateChunkWithFallback({ texts, targetLangLabel, settings, si
     return {
       translations: [...left.translations, ...right.translations],
       usage: null,
+      model: left.model || right.model || '',
       failed: (left.failed || 0) + (right.failed || 0),
     };
   }
@@ -94,6 +97,7 @@ export async function translateTexts({
   settings,
   texts,
   targetLangLabel,
+  sourceLangLabel,
   onProgress,
   signal,
 }) {
@@ -104,17 +108,20 @@ export async function translateTexts({
   const chunks = chunkArray(texts, size);
   const errors = [];
   let done = 0;
+  let modelUsed = '';
   let usageTotal = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
 
   const results = await mapPool(chunks, settings.concurrency || 3, async (chunk) => {
     const r = await translateChunkWithFallback({
       texts: chunk,
       targetLangLabel,
+      sourceLangLabel,
       settings,
       signal,
       errors,
     });
     done += chunk.length;
+    if (r.model && !modelUsed) modelUsed = r.model;
     if (r.usage) {
       usageTotal.prompt_tokens += r.usage.prompt_tokens || 0;
       usageTotal.completion_tokens += r.usage.completion_tokens || 0;
@@ -129,13 +136,13 @@ export async function translateTexts({
   return {
     translations: results.flat(),
     errors,
-    stats: { total: texts.length, failed: errors.length, usage: usageTotal },
+    stats: { total: texts.length, failed: errors.length, usage: usageTotal, model: modelUsed },
   };
 }
 
 /** 单条翻译（划词 / 右键菜单） */
-export async function translateOne({ settings, text, targetLangLabel, signal }) {
-  const messages = buildSingleTranslateMessages({ text, targetLangLabel });
+export async function translateOne({ settings, text, targetLangLabel, sourceLangLabel, signal }) {
+  const messages = buildSingleTranslateMessages({ text, targetLangLabel, sourceLangLabel });
   const res = await chat({ settings, messages, maxTokens: 2048, signal });
   return { translation: res.text.trim().replace(/^["「『]+|["」』]+$/g, ''), usage: res.usage, model: res.model };
 }

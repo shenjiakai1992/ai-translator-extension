@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "AI 翻译助手 · 全页 / 划词 / 总结",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "基于任意 OpenAI 兼容大模型的浏览器翻译助手：整页翻译、划词即译、一键总结，支持中英互译。API Key 由用户自己填写，数据只走用户自己的模型服务。",
   "minimum_chrome_version": "110",
   "permissions": ["storage", "contextMenus", "scripting"],
@@ -19,6 +19,10 @@
       "48": "icons/icon48.png",
       "128": "icons/icon128.png"
     }
+  },
+  "options_ui": {
+    "page": "src/options/options.html",
+    "open_in_tab": true
   },
   "icons": {
     "16": "icons/icon16.png",

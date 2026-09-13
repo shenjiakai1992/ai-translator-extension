@@ -710,6 +710,34 @@
     let fatal = null;
     let cursor = 0;
     const startedAt = Date.now();
+    // 用量累计：整页翻译是分批请求的，这里把各批的 usage 汇总起来，
+    // 等整页结束后一次性上报（否则一次整页翻译会被记成好几条历史）
+    const usage = { prompt: 0, completion: 0, total: 0 };
+    const charsTotal = texts.reduce((n, t) => n + t.length, 0);
+    let modelUsed = '';
+
+    /** 上报一条整页翻译记录到后台（历史 + 用量统计） */
+    const reportHistory = (status, error) => {
+      if (texts.length === 0) return;
+      const pairsSample = texts
+        .map((t, i) => [t, translations[i]])
+        .filter(([, d]) => typeof d === 'string' && d.trim() && d.trim() !== '[object Object]')
+        .slice(0, 3);
+      send(MSG.RECORD_HISTORY, {
+        status,
+        error: error || '',
+        model: modelUsed || state.settings.model || '',
+        items: texts.length,
+        chars: charsTotal,
+        prompt: usage.prompt,
+        completion: usage.completion,
+        durationMs: Date.now() - startedAt,
+        url: location.href,
+        title: document.title,
+        src: pairsSample.map(([a]) => a).join(' ｜ '),
+        dst: pairsSample.map(([, b]) => b).join(' ｜ '),
+      }).catch(() => {});
+    };
 
     const worker = async () => {
       while (cursor < chunks.length && !state.stopped && !fatal) {
@@ -734,6 +762,13 @@
         const list = res.data?.translations || [];
         for (let i = 0; i < chunk.length; i++) translations[offset + i] = list[i];
         errors.push(...(res.data?.errors || []).map((e) => e.message));
+        const chunkUsage = res.data?.stats?.usage;
+        if (chunkUsage) {
+          usage.prompt += chunkUsage.prompt_tokens || 0;
+          usage.completion += chunkUsage.completion_tokens || 0;
+          usage.total += chunkUsage.total_tokens || 0;
+        }
+        if (res.data?.stats?.model && !modelUsed) modelUsed = res.data.stats.model;
         done += chunk.length;
         const applied = applyTranslations({ texts, translations, targets });
         showToast({
@@ -756,11 +791,14 @@
       } else {
         showToast({ text: '翻译失败', sub: fatal, spinner: false, autoHide: 6000 });
       }
+      reportHistory(state.originals.size > 0 ? 'partial' : 'failed', fatal);
       return { started: true, error: fatal };
     }
 
     state.translated = state.originals.size > 0;
     send('AITX_PAGE_STATE', { translated: state.translated });
+
+    reportHistory(state.stopped || errors.length > 0 ? 'partial' : 'ok', errors[0] || '');
 
     const seconds = ((Date.now() - startedAt) / 1000).toFixed(1);
     if (state.stopped) {
