@@ -143,8 +143,14 @@ cd "/Users/mac/Desktop/北海的空间/1-项目库/项目-20260913-鱼皮AI编�
 git add -A && git commit -m "说明本次改动" && git push
 ```
 
-> ⚠️ 推送前请确认 `tests/local.config.mjs` 没有被 `git add` 进去（它已在 `.gitignore` 中，正常不会）。
-> 可用 `git ls-files | grep local.config` 体检，**有输出说明密钥要泄露了，立刻停止推送**。
+> ⚠️ 推送前体检（**输出为空才安全**，注意要精确匹配，`local.config.example.mjs` 是模板文件不算）：
+>
+> ```bash
+> git ls-files | grep -x "tests/local.config.mjs"        # 应无输出
+> git grep -nE "sk-[A-Za-z0-9]{20,}" -- . | grep -v example  # 应无输出
+> ```
+>
+> **有输出就说明密钥要被推上去了，立刻停下。**
 >
 > 本机使用 `git credential.helper = store`（`~/.git-credentials` 里明文保存 token）。
 > 该 token 拥有你全部仓库的权限，别在公共电脑上用，也别粘贴给任何人。
