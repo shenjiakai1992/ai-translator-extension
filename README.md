@@ -123,13 +123,9 @@ ai-translator-extension/
 
 ### 推送到 GitHub
 
-远程仓库：`https://github.com/shenjiakai1992/ai-translator-extension`（私有）
+远程仓库：`https://github.com/shenjiakai1992/ai-translator-extension`（私有，2026/09/13 创建）
 
-**首次推送**（仓库若还不存在，先在网页上建）：
-
-1. 打开 `https://github.com/new?name=ai-translator-extension&visibility=private`，点「Create repository」
-   —— 不要勾选 README / .gitignore / License，本地已有内容
-2. 在终端执行：
+本地已配好 `origin`，直接推送即可：
 
 ```bash
 cd "/Users/mac/Desktop/北海的空间/1-项目库/项目-20260913-鱼皮AI编程实战/03-各种实操/ai-translator-extension"
@@ -143,7 +139,13 @@ cd "/Users/mac/Desktop/北海的空间/1-项目库/项目-20260913-鱼皮AI编�
 git add -A && git commit -m "说明本次改动" && git push
 ```
 
-> ⚠️ 推送前体检（**输出为空才安全**，注意要精确匹配，`local.config.example.mjs` 是模板文件不算）：
+> 如果所在网络直连不上 GitHub，可临时借用本机代理推送（用完即失效，不写入配置）：
+>
+> ```bash
+> git -c http.proxy=http://127.0.0.1:7897 push
+> ```
+>
+> ⚠️ 推送前体检（**输出为空才安全**，注意精确匹配，`local.config.example.mjs` 是模板文件不算）：
 >
 > ```bash
 > git ls-files | grep -x "tests/local.config.mjs"        # 应无输出
@@ -234,3 +236,4 @@ npx @puppeteer/browsers install chrome@stable --path ~/.workbuddy/binaries/brows
 配套新增 `scripting` 权限、弹窗「重试」按钮、区分配置类与页面类横幅（修复配置引导横幅被页面探测流程误清除的问题）；
 新增 2 项端到端用例，测试总数 47 → 48
 2026/09/13 16:45：更新：配置 GitHub 远程仓库（shenjiakai1992/ai-translator-extension，私有），补充「推送到 GitHub」章节与推送前密钥自检提示
+2026/09/13 16:55：更新：仓库已创建并完成首次推送，推送章节改为「直接推」，补充离线网络下的代理推送方式
