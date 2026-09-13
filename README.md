@@ -121,6 +121,34 @@ ai-translator-extension/
 └── tests/                       # 自动化测试（详见下一节）
 ```
 
+### 推送到 GitHub
+
+远程仓库：`https://github.com/shenjiakai1992/ai-translator-extension`（私有）
+
+**首次推送**（仓库若还不存在，先在网页上建）：
+
+1. 打开 `https://github.com/new?name=ai-translator-extension&visibility=private`，点「Create repository」
+   —— 不要勾选 README / .gitignore / License，本地已有内容
+2. 在终端执行：
+
+```bash
+cd "/Users/mac/Desktop/北海的空间/1-项目库/项目-20260913-鱼皮AI编程实战/03-各种实操/ai-translator-extension"
+git push -u origin main
+```
+
+**日常更新**：
+
+```bash
+cd "/Users/mac/Desktop/北海的空间/1-项目库/项目-20260913-鱼皮AI编程实战/03-各种实操/ai-translator-extension"
+git add -A && git commit -m "说明本次改动" && git push
+```
+
+> ⚠️ 推送前请确认 `tests/local.config.mjs` 没有被 `git add` 进去（它已在 `.gitignore` 中，正常不会）。
+> 可用 `git ls-files | grep local.config` 体检，**有输出说明密钥要泄露了，立刻停止推送**。
+>
+> 本机使用 `git credential.helper = store`（`~/.git-credentials` 里明文保存 token）。
+> 该 token 拥有你全部仓库的权限，别在公共电脑上用，也别粘贴给任何人。
+
 ## 七、测试
 
 项目自带三层自动化测试，共 **48 项**用例，全部通过：
@@ -199,3 +227,4 @@ npx @puppeteer/browsers install chrome@stable --path ~/.workbuddy/binaries/brows
 2026/09/13 16:35：更新：新增「老标签页自动补注入内容脚本」——解决扩展刚安装时已打开网页提示「当前页面用不了扩展」的问题；
 配套新增 `scripting` 权限、弹窗「重试」按钮、区分配置类与页面类横幅（修复配置引导横幅被页面探测流程误清除的问题）；
 新增 2 项端到端用例，测试总数 47 → 48
+2026/09/13 16:45：更新：配置 GitHub 远程仓库（shenjiakai1992/ai-translator-extension，私有），补充「推送到 GitHub」章节与推送前密钥自检提示
