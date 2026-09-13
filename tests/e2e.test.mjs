@@ -227,6 +227,29 @@ async function countCJKNodes() {
   });
 }
 
+/** 打开扩展页面。扩展刚重载时 chrome-extension:// 会被短暂拦截（ERR_BLOCKED_BY_CLIENT），所以带重试。 */
+async function openCtrlPage(retries = 24) {
+  let lastErr = '未知';
+  for (let i = 0; i < retries; i++) {
+    const p = await browser.newPage();
+    try {
+      await p.setViewport({ width: 380, height: 660, deviceScaleFactor: 2 });
+      await p.goto(`chrome-extension://${extId}/src/popup/popup.html`, {
+        waitUntil: 'domcontentloaded',
+        timeout: 5000,
+      });
+      const ready = await p.evaluate(() => Boolean(document.getElementById('baseUrl'))).catch(() => false);
+      if (ready) return p;
+      lastErr = '页面元素未就绪';
+    } catch (err) {
+      lastErr = err?.message?.split('\n')[0] || String(err);
+    }
+    await p.close().catch(() => {});
+    await sleep(700);
+  }
+  throw new Error(`扩展页面一直打不开：${lastErr}`);
+}
+
 /** 把被测页面恢复到干净状态：写入指定配置 → 重新加载 → 等内容脚本就绪 */
 async function resetFixture(patch = {}) {
   await setStoredSettings({
@@ -344,10 +367,7 @@ async function main() {
   }
 
   await test('打开扩展配置页并写入测试用模型配置', async () => {
-    ctrl = await browser.newPage();
-    // 按弹窗真实尺寸渲染（实际弹窗宽度 372px），这样截图更贴近真实观感
-    await ctrl.setViewport({ width: 380, height: 660, deviceScaleFactor: 2 });
-    await ctrl.goto(`chrome-extension://${extId}/src/popup/popup.html`, { waitUntil: 'domcontentloaded' });
+    ctrl = await openCtrlPage();
     const stored = await setStoredSettings({
       baseUrl: settings.baseUrl,
       apiKey: settings.apiKey,
@@ -716,22 +736,65 @@ async function main() {
     await page.screenshot({ path: path.join(OUT_DIR, '06-error-state.png') });
   });
 
-  await test('没有内容脚本的页面无法通信（会走友好提示分支）', async () => {
+  await test('回归：内容脚本缺失时后台能自动补注入（对应「先开网页、后装扩展」）', async () => {
+    await resetFixture();
+    const tabId = await fixtureTabId();
+
+    // 1) 正常页面：探活应报告「本来就在」，不会多此一举地重复注入
+    const first = await ctrl.evaluate(
+      (id) => chrome.runtime.sendMessage({ type: 'AITX_ENSURE_CONTENT', tabId: id }),
+      tabId
+    );
+    assert(first?.ok && first.data?.ok, `探活应成功，实际：${JSON.stringify(first)}`);
+    assertEqual(first.data.alreadyInjected, true, '正常页面应报告 alreadyInjected');
+
+    // 2) 补注入原语：验证 scripting 权限、脚本路径、共享模块动态加载都能跑通
+    const injected = await ctrl.evaluate(
+      (id) =>
+        chrome.scripting
+          .executeScript({ target: { tabId: id }, files: ['src/content/content.js'] })
+          .then(() => true, (e) => String(e?.message || e)),
+      tabId
+    );
+    assertEqual(injected, true, `应能注入内容脚本，实际：${injected}`);
+    info('scripting.executeScript 注入成功（权限与路径均正确）');
+
+    // 3) 幂等：重复注入应被守卫挡住，页面里不会出现两个扩展 UI 容器
+    const again = await ctrl.evaluate(
+      (id) =>
+        chrome.scripting
+          .executeScript({ target: { tabId: id }, files: ['src/content/content.js'] })
+          .then(() => true, (e) => String(e?.message || e)),
+      tabId
+    );
+    assertEqual(again, true, '重复注入不应报错');
+    const hostCount = await page.evaluate(() => document.querySelectorAll('#aitx-host').length);
+    assert(hostCount <= 1, `扩展 UI 容器应至多一个，实际 ${hostCount}`);
+    assert((await sendToPage('AITX_PING'))?.ok, '注入后内容脚本仍应正常通信');
+    await resetFixture();
+  });
+
+  await test('确实无法注入的页面：补注入返回失败并带原因', async () => {
     const blank = await browser.newPage();
+    await blank.bringToFront();
     await blank.goto('data:text/html,<h1>no content script here</h1>', { waitUntil: 'domcontentloaded' });
-    const err = await ctrl.evaluate(async () => {
-      const tabs = await chrome.tabs.query({});
-      const tab = tabs.find((t) => (t.url || '').startsWith('data:text/html'));
-      if (!tab) return 'no-tab';
-      try {
-        await chrome.tabs.sendMessage(tab.id, { type: 'AITX_PING' });
-        return 'unexpected-ok';
-      } catch (e) {
-        return String(e?.message || e);
-      }
+    const tabId = await ctrl.evaluate(async () => {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      return tab?.id ?? null;
     });
-    assert(err !== 'unexpected-ok', '没有内容脚本的页面不应响应消息');
-    info(`这类页面消息返回：${String(err).slice(0, 70)}`);
+    if (tabId == null) {
+      info('浏览器未暴露该标签页 ID，跳过');
+      await blank.close();
+      return;
+    }
+    const res = await ctrl.evaluate(
+      (id) => chrome.runtime.sendMessage({ type: 'AITX_ENSURE_CONTENT', tabId: id }),
+      tabId
+    );
+    assert(res?.ok, '消息通道本身不应报错');
+    assertEqual(res.data.ok, false, '这类页面补注入应返回失败');
+    assert(res.data.reason, '失败时应带上原因，便于排查');
+    info(`注入失败原因：${res.data.reason}`);
     await blank.close();
   });
 
@@ -740,6 +803,12 @@ async function main() {
 
   await test('回到原文状态并生成完整截图存档', async () => {
     await resetFixture();
+    // 前面的用例可能让扩展页失去上下文，这里兜底重建一次
+    try {
+      await ctrl.evaluate(() => 1);
+    } catch {
+      ctrl = await openCtrlPage();
+    }
     await ctrl.bringToFront();
     await ctrl.reload({ waitUntil: 'domcontentloaded' });
     await sleep(1500);

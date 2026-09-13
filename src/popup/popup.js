@@ -16,6 +16,8 @@ const ui = {
   btnRestore: el('btnRestore'),
   translateSub: el('translateSub'),
   banner: el('banner'),
+  bannerText: el('bannerText'),
+  btnRetry: el('btnRetry'),
   settings: el('settings'),
   baseUrl: el('baseUrl'),
   baseUrlHint: el('baseUrlHint'),
@@ -50,14 +52,27 @@ function flash(text) {
   flash._t = setTimeout(() => (ui.flash.hidden = true), 1600);
 }
 
-function showBanner(text, kind = 'error') {
-  ui.banner.textContent = text;
+/**
+ * 横幅分两类，用 data-kind 区分：
+ *   config —— 配置类引导（如「还没填 API Key」），不应被页面探测流程清掉
+ *   page   —— 页面可用性提示（如「这个页面用不了扩展」），页面恢复正常后应自动消失
+ */
+function showBanner(text, kind = 'error', { retry = false, tag = 'config' } = {}) {
+  ui.bannerText.textContent = text;
   ui.banner.className = 'banner' + (kind === 'info' ? ' info' : '');
+  ui.banner.dataset.kind = tag;
   ui.banner.hidden = false;
+  ui.btnRetry.hidden = !retry;
 }
 
 function hideBanner() {
   ui.banner.hidden = true;
+  ui.btnRetry.hidden = true;
+}
+
+/** 只在页面恢复正常时清掉「页面用不了」那类提示，保留配置类引导 */
+function clearPageBanner() {
+  if (ui.banner.dataset.kind === 'page') hideBanner();
 }
 
 async function sendToPage(type) {
@@ -101,26 +116,60 @@ async function init() {
   await probePage();
 }
 
-/** 探测当前页面能不能用（浏览器内置页、应用商店页会失败） */
+/**
+ * 探测当前页面能不能用。
+ *
+ * 关键点：扩展刚安装或重载时，**已经打开的标签页不会自动注入内容脚本**（Chrome 的行为），
+ * 这时不是"页面不支持"，而是"脚本还没进去"。所以先让后台探活并主动补注入一次，
+ * 用户就不需要自己去按 F5 了。只有 chrome:// 、应用商店、PDF 阅读器才是真的注入不了。
+ */
 async function probePage() {
-  // 先确认内容脚本是否就绪，顺便拿到当前页面的状态
+  clearPageBanner();
+
+  const tabId = activeTab?.id;
+  let injectFailReason = '';
+  if (tabId) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const r = await chrome.runtime.sendMessage({ type: MSG.ENSURE_CONTENT, tabId });
+        if (r?.ok && r.data?.ok) {
+          if (r.data.injected) flash('已自动为当前页面启用');
+          break;
+        }
+        injectFailReason = r?.data?.reason || r?.error?.message || '';
+      } catch (err) {
+        injectFailReason = err?.message || String(err);
+      }
+      await new Promise((res) => setTimeout(res, 300));
+    }
+  }
+
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const res = await sendToPage(PAGE_CMD.GET_STATE);
       pageReady = true;
       pageState = { translated: !!res.translated, running: !!res.running };
       paintPageState();
-      return;
+      clearPageBanner();
+      return true;
     } catch {
       await new Promise((r) => setTimeout(r, 250));
     }
   }
+
   pageReady = false;
   pageState = { translated: false, running: false };
   ui.btnTranslate.disabled = true;
   ui.btnSummary.disabled = true;
   ui.btnRestore.disabled = true;
-  showBanner('当前页面不支持扩展（浏览器内置页面、应用商店或 PDF 阅读器中无法注入），请切换到普通网页再试。', 'info');
+  showBanner(
+    '这个页面用不了扩展：浏览器内置页面（chrome://）、Chrome 应用商店、PDF 阅读器都不允许注入脚本。' +
+      '如果是刚安装或刚重载扩展，点「重试」或刷新页面（F5）即可。',
+    'info',
+    { retry: true, tag: 'page' }
+  );
+  if (injectFailReason) console.debug('[AI 翻译助手] 注入失败原因：', injectFailReason);
+  return false;
 }
 
 function paintPageState() {
@@ -177,6 +226,23 @@ function expandSettings(expand) {
 }
 
 ui.btnToggleSettings.addEventListener('click', () => expandSettings(ui.settings.hidden));
+
+// 页面用不了时的「重试」：重新探活并按需补注入内容脚本
+ui.btnRetry.addEventListener('click', async () => {
+  ui.btnRetry.disabled = true;
+  ui.btnRetry.textContent = '检查中…';
+  let ok = false;
+  try {
+    ok = await probePage();
+  } finally {
+    ui.btnRetry.textContent = '重试';
+    ui.btnRetry.disabled = false;
+  }
+  if (ok) {
+    flash('已就绪');
+    hideBanner();
+  }
+});
 ui.baseUrl.addEventListener('input', refreshUrlHint);
 
 ui.btnToggleKey.addEventListener('click', () => {

@@ -14,6 +14,8 @@ export const MSG = {
   SUMMARIZE: 'AITX_SUMMARIZE',
   SET_BADGE: 'AITX_SET_BADGE',
   SHOW_TRANSLATION: 'AITX_SHOW_TRANSLATION',
+  /** 探活指定标签页的内容脚本，缺失时主动补注入 */
+  ENSURE_CONTENT: 'AITX_ENSURE_CONTENT',
 };
 
 // 弹窗 → 页面

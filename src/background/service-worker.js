@@ -47,12 +47,24 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (!tab?.id) return;
   try {
     if (info.menuItemId === 'aitx-translate-page') {
-      await sendToTab(tab.id, { type: PAGE_CMD.TOGGLE_PAGE });
+      const ensuredPage = await ensureContentScript(tab.id);
+      if (ensuredPage.ok) await sendToTab(tab.id, { type: PAGE_CMD.TOGGLE_PAGE });
       return;
     }
     if (info.menuItemId !== CONTEXT_MENU_ID) return;
     const text = (info.selectionText || '').trim();
     if (!text) return;
+
+    // 老标签页可能还没注入内容脚本，先补一次
+    const ensured = await ensureContentScript(tab.id);
+    if (!ensured.ok) {
+      await sendToTab(tab.id, {
+        type: MSG.SHOW_TRANSLATION,
+        original: text,
+        error: '当前页面不支持扩展（浏览器内置页面、应用商店或 PDF 阅读器），请换一个普通网页再试',
+      }).catch(() => {});
+      return;
+    }
 
     const settings = await getSettings();
     const label = languagePrompt(settings.targetLang);
@@ -82,7 +94,9 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 chrome.commands?.onCommand.addListener(async (command) => {
   if (command !== 'toggle-page-translate') return;
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (tab?.id) await sendToTab(tab.id, { type: PAGE_CMD.TOGGLE_PAGE }).catch(() => {});
+  if (!tab?.id) return;
+  const ensured = await ensureContentScript(tab.id);
+  if (ensured.ok) await sendToTab(tab.id, { type: PAGE_CMD.TOGGLE_PAGE }).catch(() => {});
 });
 
 /* ------------------------------------------------------------------ */
@@ -107,6 +121,43 @@ async function sendToTab(tabId, message) {
       fatal: true,
     });
   }
+}
+
+/**
+ * 确保标签页里有可用的内容脚本。
+ *
+ * 为什么需要它：扩展刚安装或重载时，**已经打开的标签页不会自动注入内容脚本**
+ * （这是 Chrome 的行为，只有刷新后的页面才会注入）。以前遇到这种情况只能提示用户
+ * 「请刷新页面」，现在主动补注入一次，用户无感。
+ * 对浏览器内置页（chrome://）、应用商店、PDF 阅读器，Chrome 会拒绝注入，此时返回失败由上层提示。
+ */
+async function ensureContentScript(tabId) {
+  const ping = async () => {
+    try {
+      const res = await chrome.tabs.sendMessage(tabId, { type: PAGE_CMD.PING });
+      return !!res?.ok;
+    } catch {
+      return false;
+    }
+  };
+
+  if (await ping()) return { ok: true, alreadyInjected: true };
+
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId, allFrames: false },
+      files: ['src/content/content.js'],
+    });
+  } catch (err) {
+    return { ok: false, reason: err?.message || String(err) };
+  }
+
+  // 内容脚本要先动态加载共享模块、注册好消息监听才算就绪，给它一点时间
+  for (let i = 0; i < 6; i++) {
+    await new Promise((r) => setTimeout(r, 120));
+    if (await ping()) return { ok: true, injected: true };
+  }
+  return { ok: false, reason: '注入后仍无响应' };
 }
 
 function serializeError(err) {
@@ -148,6 +199,12 @@ async function handleMessage(msg, sender) {
       const tabId = sender?.tab?.id;
       if (tabId) setBadge(tabId, msg.text || '', msg.color);
       return true;
+    }
+
+    case MSG.ENSURE_CONTENT: {
+      const tabId = msg.tabId ?? sender?.tab?.id;
+      if (!tabId) throw new LLMError('没有指定要检查的标签页', { code: 'no_tab' });
+      return ensureContentScript(tabId);
     }
 
     case MSG.TEST_CONNECTION: {
