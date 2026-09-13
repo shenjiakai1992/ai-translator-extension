@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Acme Cloud Platform — Build faster with AI</title>
+<style>
+  body { font-family: -apple-system, sans-serif; margin: 0; max-width: 860px; padding: 0 24px 60px; color: #1a1d21; line-height: 1.65; }
+  nav { display: flex; gap: 22px; padding: 18px 0; border-bottom: 1px solid #e3e6ea; font-weight: 600; }
+  nav a { color: #2b6cf6; text-decoration: none; }
+  h1 { font-size: 34px; line-height: 1.2; margin: 34px 0 12px; }
+  pre { background: #f5f6f8; padding: 14px; border-radius: 10px; overflow-x: auto; font-size: 13px; }
+  code { font-family: ui-monospace, Menlo, monospace; }
+  .btn { display: inline-block; padding: 10px 18px; border-radius: 10px; background: #2b6cf6; color: #fff; font-weight: 600; margin-right: 8px; }
+  .btn.ghost { background: #eef1f6; color: #1a1d21; }
+  .muted { color: #6b7280; font-size: 13px; }
+  footer { margin-top: 40px; padding-top: 18px; border-top: 1px solid #e3e6ea; color: #6b7280; font-size: 13px; }
+  .card { border: 1px solid #e3e6ea; border-radius: 12px; padding: 16px; margin: 16px 0; }
+  input { padding: 8px 10px; border: 1px solid #d7dbe0; border-radius: 8px; }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="#home" id="nav-home">Home</a>
+  <a href="#features" id="nav-features">Features</a>
+  <a href="#pricing" id="nav-pricing">Pricing</a>
+  <a href="#contact" id="nav-contact">Contact us</a>
+</nav>
+
+<h1 id="hero-title">Build faster with AI</h1>
+<p id="hero-desc">Acme Cloud gives your team everything it needs to ship production software in days instead of months. No credit card required to get started.</p>
+<div>
+  <a class="btn" id="cta-primary">Get started for free</a>
+  <a class="btn ghost" id="cta-secondary">Learn more</a>
+</div>
+
+<h2>Install the SDK in one line</h2>
+<pre><code id="code-block">const client = new AcmeClient({ apiKey: process.env.ACME_KEY });
+const users = await client.users.list({ limit: 50 });
+console.log(`Fetched ${users.length} users`);</code></pre>
+
+<article id="article">
+  <h2>Why teams switch to Acme Cloud</h2>
+  <p id="p1">Traditional deployments require a dedicated operations team, a lengthy review process, and weeks of configuration. Acme Cloud removes all of that overhead by automating provisioning, scaling, and monitoring behind a single API.</p>
+  <p id="p2">Customers report a sixty percent reduction in deployment time within the first quarter. The platform also provides built-in observability, so engineers can trace a request across every service without installing additional agents.</p>
+
+  <h2>Everything you need to build faster</h2>
+  <ul>
+    <li id="li1">Instant rollbacks with a single command</li>
+    <li id="li2">Automatic SSL certificates and custom domains</li>
+    <li id="li3">Usage based pricing with no hidden fees</li>
+  </ul>
+
+  <h2>Frequently Asked Questions</h2>
+  <div class="card">
+    <p id="faq1">Is there a free tier? Yes, every account includes generous free usage limits that never expire.</p>
+    <p id="faq2">How long does onboarding take? Most teams are running in production within a single afternoon.</p>
+  </div>
+</article>
+
+<form>
+  <label class="muted">Work email</label><br>
+  <input type="email" placeholder="you@company.com" />
+</form>
+
+<footer id="footer">
+  <p>© 2026 Acme Inc. All rights reserved. · Frequently Asked Questions</p>
+</footer>
+
+<script>
+  // 这段脚本内容不应该被翻译
+  function noop() { return 'script content should stay in English'; }
+  window.__fixtureLoaded = true;
+</script>
+
+</body>
+</html>

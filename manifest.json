@@ -1,0 +1,51 @@
+{
+  "manifest_version": 3,
+  "name": "AI 翻译助手 · 全页 / 划词 / 总结",
+  "version": "1.0.0",
+  "description": "基于任意 OpenAI 兼容大模型的浏览器翻译助手：整页翻译、划词即译、一键总结，支持中英互译。API Key 由用户自己填写，数据只走用户自己的模型服务。",
+  "minimum_chrome_version": "110",
+  "permissions": ["storage", "contextMenus"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "src/background/service-worker.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "AI 翻译助手",
+    "default_popup": "src/popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content/content.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["src/lib/text-utils.js", "src/lib/protocol.js"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "commands": {
+    "toggle-page-translate": {
+      "suggested_key": {
+        "default": "Alt+Shift+T"
+      },
+      "description": "翻译 / 还原本页"
+    }
+  }
+}

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>AI 翻译助手</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="head">
+        <div class="logo">译</div>
+        <div class="headtext">
+          <h1>AI 翻译助手</h1>
+          <p id="statusLine">正在读取配置…</p>
+        </div>
+        <button class="ghost-icon" id="btnToggleSettings" title="模型设置">⚙</button>
+      </header>
+
+      <div class="quick">
+        <button class="qbtn primary" id="btnTranslate">
+          <span class="qico" aria-hidden="true">⇄</span>
+          <span class="qmain">
+            <span class="qtitle">翻译本页</span>
+            <span class="qsub" id="translateSub">整页替换为译文</span>
+          </span>
+        </button>
+        <div class="quickrow">
+          <button class="qbtn small" id="btnSummary">
+            <span class="qico small" aria-hidden="true">≡</span>总结本页
+          </button>
+          <button class="qbtn small" id="btnRestore">
+            <span class="qico small" aria-hidden="true">↺</span>还原原文
+          </button>
+        </div>
+      </div>
+
+      <div class="banner" id="banner" hidden></div>
+
+      <section class="settings" id="settings" hidden>
+        <div class="group">
+          <div class="group-title">模型接入<span class="badge">OpenAI 兼容</span></div>
+
+          <label class="field">
+            <span class="fl">接口地址 Base URL</span>
+            <input id="baseUrl" spellcheck="false" autocomplete="off" placeholder="https://api.deepseek.com/v1" />
+          </label>
+          <p class="hint" id="baseUrlHint"></p>
+
+          <label class="field">
+            <span class="fl">API Key</span>
+            <span class="inline">
+              <input id="apiKey" type="password" spellcheck="false" autocomplete="off" placeholder="sk-..." />
+              <button class="mini" id="btnToggleKey" type="button">显示</button>
+            </span>
+          </label>
+
+          <label class="field">
+            <span class="fl">模型</span>
+            <input id="model" list="modelList" spellcheck="false" autocomplete="off" placeholder="deepseek-flash" />
+            <datalist id="modelList">
+              <option value="deepseek-flash"></option>
+              <option value="deepseek-chat"></option>
+              <option value="deepseek-reasoner"></option>
+              <option value="gpt-4o-mini"></option>
+              <option value="gpt-4o"></option>
+              <option value="qwen-plus"></option>
+              <option value="glm-4-flash"></option>
+              <option value="moonshot-v1-8k"></option>
+            </datalist>
+          </label>
+        </div>
+
+        <div class="group">
+          <div class="group-title">翻译偏好</div>
+          <div class="two">
+            <label class="field">
+              <span class="fl">目标语言</span>
+              <select id="targetLang"></select>
+            </label>
+            <label class="field">
+              <span class="fl">显示方式</span>
+              <select id="displayMode">
+                <option value="replace">仅显示译文</option>
+                <option value="bilingual">译文 + 原文对照</option>
+              </select>
+            </label>
+          </div>
+
+          <label class="switch">
+            <input type="checkbox" id="disableThinking" />
+            <span class="track"></span>
+            <span class="sw-label">快速模式<em>关闭模型思考链，翻译更快更省</em></span>
+          </label>
+          <label class="switch">
+            <input type="checkbox" id="selectionTranslate" />
+            <span class="track"></span>
+            <span class="sw-label">划词翻译<em>选中文字后浮出「译」按钮</em></span>
+          </label>
+          <label class="switch">
+            <input type="checkbox" id="autoTranslate" />
+            <span class="track"></span>
+            <span class="sw-label">自动翻译<em>打开网页后自动翻译整页</em></span>
+          </label>
+        </div>
+
+        <div class="actions">
+          <button class="btn ghost" id="btnTest">测试连接</button>
+          <button class="btn solid" id="btnSave">保存设置</button>
+        </div>
+        <p class="testout" id="testOut" hidden></p>
+      </section>
+
+      <footer class="foot">
+        <span id="footNote">API Key 只保存在本机浏览器，不会上传到任何第三方</span>
+      </footer>
+    </div>
+
+    <div class="flash" id="flash" hidden></div>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>
